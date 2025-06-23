@@ -32,7 +32,7 @@ const (
 )
 
 // defines all required headers for message processing
-var requiredHeaders = []string{"operation", "txid"}
+var requiredHeaders = []string{"operation"}
 
 var ErrClosed = errors.New("consumer closed")
 var ErrMaxRetries = errors.New("max retries reached")
@@ -254,7 +254,7 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 
 	switch operation {
 	case string(OperationTypeCreated):
-		i.Logger.Infof("processing message: operation=%s, txid=%s", operation)
+		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message tuple=%s", msg.Value)
 		/* Convert to inventory calls
 		   			tuple, err := ParseCreateOrUpdateMessage(msg.Value)
@@ -275,7 +275,7 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 		   		}
 		*/
 	case string(OperationTypeUpdated):
-		i.Logger.Infof("processing message: operation=%s, txid=%s", operation)
+		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message tuple=%s", msg.Value)
 		/* Convert to inventory calls
 			tuple, err := ParseCreateOrUpdateMessage(msg.Value)
@@ -296,7 +296,7 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 		}
 		*/
 	case string(OperationTypeDeleted):
-		i.Logger.Infof("processing message: operation=%s, txid=%s", operation)
+		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message tuple=%s", msg.Value)
 		/* Convert to inventory calls
 			filter, err := ParseDeleteMessage(msg.Value)
