@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.opentelemetry.io/otel"
 )
 
 func TestMetrics_New(t *testing.T) {
@@ -14,7 +13,7 @@ func TestMetrics_New(t *testing.T) {
 	}{
 		mc: MetricsCollector{},
 	}
-	err := test.mc.New(otel.Meter("github.com/project-kessel/inventory-api/blob/main/internal/server/otel"))
+	err := test.mc.New()
 	assert.Nil(t, err)
 
 	structValues := reflect.ValueOf(test.mc)

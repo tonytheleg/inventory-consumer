@@ -71,9 +71,6 @@ type CGRPData struct {
 
 // MetricsCollector captures metrics from stats messages and from custom app-centric messages
 type MetricsCollector struct {
-	meterProvider metric.MeterProvider
-	meter         metric.Meter
-
 	// Top-Level Metrics
 	replyq metric.Int64Gauge
 

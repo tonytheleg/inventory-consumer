@@ -3,11 +3,11 @@ package consumer
 import (
 	"testing"
 
-	"github.com/project-kessel/inventory-api/internal/consumer/auth"
-	"github.com/project-kessel/inventory-api/internal/consumer/retry"
-	"github.com/project-kessel/inventory-api/internal/helpers"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+	"github.com/tonytheleg/inventory-consumer/auth"
+	"github.com/tonytheleg/inventory-consumer/common"
+	"github.com/tonytheleg/inventory-consumer/retry"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -49,7 +49,7 @@ func TestOptions_AddFlags(t *testing.T) {
 	// the below logic ensures that every possible option defined in the Options type
 	// has a defined flag for that option; auth and retry-options are skipped in favor of testing
 	// in their own packages
-	helpers.AllOptionsHaveFlags(t, prefix, fs, *test.options, []string{"auth", "retry-options"})
+	common.AllOptionsHaveFlags(t, prefix, fs, *test.options, []string{"auth", "retry-options"})
 }
 
 func TestOptions_Validate(t *testing.T) {
