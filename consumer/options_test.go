@@ -18,7 +18,7 @@ func TestNewOptions(t *testing.T) {
 		options: NewOptions(),
 		expectedOptions: &Options{
 			Enabled:                 true,
-			ConsumerGroupID:         "inventory-consumer",
+			ConsumerGroupID:         "ircg",
 			Topic:                   "outbox.event.kessel.tuples",
 			SessionTimeout:          "45000",
 			HeartbeatInterval:       "3000",

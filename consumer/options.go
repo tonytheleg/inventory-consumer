@@ -30,7 +30,7 @@ type Options struct {
 func NewOptions() *Options {
 	return &Options{
 		Enabled:                 true,
-		ConsumerGroupID:         "inventory-consumer",
+		ConsumerGroupID:         "ircg",
 		Topic:                   "outbox.event.kessel.tuples",
 		SessionTimeout:          "45000",
 		HeartbeatInterval:       "3000",
