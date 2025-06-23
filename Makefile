@@ -1,3 +1,7 @@
+.PHONY: build
+build:
+	mkdir -p bin/ && go build -ldflags "-X cmd.Version=$(VERSION)" -o ./bin/ ./...
+
 .PHONY: test
 test:
 	@echo ""
