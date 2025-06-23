@@ -117,6 +117,35 @@ type MessagePayload struct {
 	RelationsRequest interface{}            `json:"payload"`
 }
 
+// Run starts the Consume loop with retry configurations and backoff
+func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, logger *log.Helper) error {
+	retries := 0
+	for options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
+		// If the consumer cannot process a message, the consumer loop is restarted
+		// This is to ensure we re-read the message and prevent it being dropped and moving to next message.
+		// To re-read the current message, we have to recreate the consumer connection so that the earliest offset is used
+		icrg, err := New(config, nil, logger)
+		if err != nil {
+			return err
+		}
+		err = icrg.Consume()
+		if errors.Is(err, ErrClosed) {
+			icrg.Logger.Errorf("consumer unable to process current message -- restarting consumer")
+			retries++
+			if options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
+				backoff := min(time.Duration(icrg.RetryOptions.BackoffFactor*retries*300)*time.Millisecond, time.Duration(options.RetryOptions.MaxBackoffSeconds)*time.Second)
+				icrg.Logger.Errorf("retrying in %v", backoff)
+				time.Sleep(backoff)
+			}
+			continue
+		} else {
+			icrg.Logger.Errorf("consumer unable to process messages: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
 // Consume begins the consumption loop for the Consumer
 func (i *InventoryConsumer) Consume() error {
 	err := i.Consumer.SubscribeTopics([]string{i.Config.Topic}, i.RebalanceCallback)

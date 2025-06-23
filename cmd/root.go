@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
 	"os"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -23,28 +21,6 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "inventory-consumer",
 	Short: "A consumer group for replicating resources to Kessel Inventory",
-	Long: `creates an consumer group that consumes from the defined topic to replicate
-resources created by a service provider into Kessel Inventory.`,
-	Run: func(cmd *cobra.Command, args []string) {
-
-	},
-}
-
-func shutdown(cm *consumer.InventoryConsumer, logger *log.Helper, reason error) {
-	log.Info(fmt.Sprintf("Consumer Shutdown: %s", reason))
-
-	if cm != nil {
-		defer func() {
-			err := cm.Shutdown()
-			if err != nil {
-				if errors.Is(err, consumer.ErrClosed) {
-					logger.Warn("error shutting down consumer, consumer already closed")
-				} else {
-					logger.Error(fmt.Sprintf("Error Gracefully Shutting Down Consumer: %v", err))
-				}
-			}
-		}()
-	}
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -52,6 +28,7 @@ func shutdown(cm *consumer.InventoryConsumer, logger *log.Helper, reason error) 
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		logger.Error(err.Error())
 		os.Exit(1)
 	}
 }

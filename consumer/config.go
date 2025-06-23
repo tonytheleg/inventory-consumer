@@ -91,12 +91,10 @@ func (c *Config) Complete() (CompletedConfig, []error) {
 		return CompletedConfig{}, errs
 	}
 	return CompletedConfig{&completedConfig{
-		KafkaConfig:             config,
-		Topic:                   c.Topic,
-		Options:                 c.Options,
-		RetryConfig:             c.RetryConfig,
-		AuthConfig:              c.AuthConfig,
-		ReadAfterWriteEnabled:   c.ReadAfterWriteEnabled,
-		ReadAfterWriteAllowlist: c.ReadAfterWriteAllowlist,
+		KafkaConfig: config,
+		Topic:       c.Topic,
+		Options:     c.Options,
+		RetryConfig: c.RetryConfig,
+		AuthConfig:  c.AuthConfig,
 	}}, nil
 }

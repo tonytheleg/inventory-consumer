@@ -26,6 +26,4 @@ func TestConfig_Complete(t *testing.T) {
 	assert.NotNil(t, completed.KafkaConfig)
 	assert.NotNil(t, completed.RetryConfig)
 	assert.NotNil(t, completed.AuthConfig)
-	assert.NotNil(t, completed.ReadAfterWriteEnabled)
-	assert.NotNil(t, completed.ReadAfterWriteAllowlist)
 }
