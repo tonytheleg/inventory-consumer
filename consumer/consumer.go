@@ -12,10 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tonytheleg/inventory-consumer/auth"
+	"github.com/tonytheleg/inventory-consumer/consumer/auth"
+	"github.com/tonytheleg/inventory-consumer/consumer/retry"
 	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
-	"github.com/tonytheleg/inventory-consumer/retry"
-
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"

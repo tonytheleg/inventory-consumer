@@ -3,10 +3,9 @@ package consumer
 import (
 	"fmt"
 
-	"github.com/tonytheleg/inventory-consumer/auth"
-	"github.com/tonytheleg/inventory-consumer/retry"
-
 	"github.com/spf13/pflag"
+	"github.com/tonytheleg/inventory-consumer/consumer/auth"
+	"github.com/tonytheleg/inventory-consumer/consumer/retry"
 )
 
 type Options struct {
