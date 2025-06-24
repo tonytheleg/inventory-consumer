@@ -1,20 +1,14 @@
 package config
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/go-kratos/kratos/v2/log"
-	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/tonytheleg/inventory-consumer/consumer"
 	"github.com/tonytheleg/inventory-consumer/internal/client"
-	"github.com/tonytheleg/inventory-consumer/internal/storage"
 )
 
 // OptionsConfig contains the settings for each configuration option
 type OptionsConfig struct {
 	Consumer *consumer.Options
-	Storage  *storage.Options
 	Client   *kessel.Options
 }
 
@@ -22,7 +16,6 @@ type OptionsConfig struct {
 func NewOptionsConfig() *OptionsConfig {
 	return &OptionsConfig{
 		consumer.NewOptions(),
-		storage.NewOptions(),
 		kessel.NewOptions(),
 	}
 }
@@ -44,16 +37,6 @@ func LogConfigurationInfo(options *OptionsConfig) {
 		options.Consumer.AuthOptions.SASLMechanism,
 		options.Consumer.AuthOptions.SASLUsername)
 
-	if options.Storage.Database == storage.Postgres {
-		log.Debugf("Storage Configuration: Host: %s, DB: %s, Port: %s, SSLMode: %s, RDSCACert: %s",
-			options.Storage.Postgres.Host,
-			options.Storage.Postgres.DbName,
-			options.Storage.Postgres.Port,
-			options.Storage.Postgres.SSLMode,
-			options.Storage.Postgres.SSLRootCert,
-		)
-	}
-
 	//if options.Client.Enabled {
 	//log.Debugf("Client Configuration: URL: %s, Insecure?: %t, Token Endpoint?: %t",
 	//	options.Client.InventoryURL,
@@ -72,26 +55,6 @@ func LogConfigurationInfo(options *OptionsConfig) {
 //		}
 //		return nil
 //	}
-
-// ConfigureStorage updates Storage settings based on ClowdApp AppConfig
-func (o *OptionsConfig) ConfigureStorage(appconfig *clowder.AppConfig) error {
-	o.Storage.Database = storage.Postgres
-	o.Storage.Postgres.Host = appconfig.Database.Hostname
-	o.Storage.Postgres.Port = strconv.Itoa(appconfig.Database.Port)
-	o.Storage.Postgres.User = appconfig.Database.Username
-	o.Storage.Postgres.Password = appconfig.Database.Password
-	o.Storage.Postgres.DbName = appconfig.Database.Name
-
-	if appconfig.Database.RdsCa != nil {
-		caPath, err := appconfig.RdsCa()
-		if err != nil {
-			return fmt.Errorf("failed to load rds ca: %w", err)
-		}
-		o.Storage.Postgres.SSLMode = "verify-full"
-		o.Storage.Postgres.SSLRootCert = caPath
-	}
-	return nil
-}
 
 //// ConfigureConsumer updates Consumer settings based on ClowdApp AppConfig
 //func (o *OptionsConfig) ConfigureConsumer(appconfig *clowder.AppConfig) {

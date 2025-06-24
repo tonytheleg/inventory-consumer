@@ -20,7 +20,6 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/project-kessel/inventory-client-go/v1beta1"
-	"gorm.io/gorm"
 )
 
 const (
@@ -52,7 +51,6 @@ type InventoryConsumer struct {
 	Client        *v1beta1.InventoryClient
 	OffsetStorage []kafka.TopicPartition
 	Config        CompletedConfig
-	DB            *gorm.DB
 	// AuthzConfig      authz.CompletedConfig	// Sets up Kessl AuthZ
 	// Authorizer       api.Authorizer			// needs to be replaced with inventory client
 	MetricsCollector *metricscollector.MetricsCollector
@@ -63,7 +61,7 @@ type InventoryConsumer struct {
 }
 
 // New instantiates a new InventoryConsumer
-func New(config CompletedConfig, db *gorm.DB, client *v1beta1.InventoryClient, logger *log.Helper) (InventoryConsumer, error) {
+func New(config CompletedConfig, client *v1beta1.InventoryClient, logger *log.Helper) (InventoryConsumer, error) {
 	logger.Info("Setting up kafka consumer")
 	logger.Debugf("completed kafka config: %+v", config.KafkaConfig)
 	consumer, err := kafka.NewConsumer(config.KafkaConfig)
@@ -99,7 +97,6 @@ func New(config CompletedConfig, db *gorm.DB, client *v1beta1.InventoryClient, l
 		Client:           client,
 		OffsetStorage:    make([]kafka.TopicPartition, 0),
 		Config:           config,
-		DB:               db,
 		MetricsCollector: &mc,
 		Logger:           logger,
 		AuthOptions:      authnOptions,
@@ -120,13 +117,13 @@ type MessagePayload struct {
 }
 
 // Run starts the Consume loop with retry configurations and backoff
-func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, db *gorm.DB, client *v1beta1.InventoryClient, logger *log.Helper) error {
+func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, client *v1beta1.InventoryClient, logger *log.Helper) error {
 	retries := 0
 	for options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
 		// If the consumer cannot process a message, the consumer loop is restarted
 		// This is to ensure we re-read the message and prevent it being dropped and moving to next message.
 		// To re-read the current message, we have to recreate the consumer connection so that the earliest offset is used
-		icrg, err := New(config, db, client, logger)
+		icrg, err := New(config, client, logger)
 		if err != nil {
 			return err
 		}

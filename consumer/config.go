@@ -22,12 +22,10 @@ type Config struct {
 
 type completedConfig struct {
 	*Options
-	Topic                   string
-	KafkaConfig             *kafka.ConfigMap
-	RetryConfig             *retry.Config
-	AuthConfig              *auth.Config
-	ReadAfterWriteEnabled   bool
-	ReadAfterWriteAllowlist []string
+	Topic       string
+	KafkaConfig *kafka.ConfigMap
+	RetryConfig *retry.Config
+	AuthConfig  *auth.Config
 }
 
 type CompletedConfig struct {

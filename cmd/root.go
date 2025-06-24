@@ -71,7 +71,7 @@ func init() {
 		ServiceVersion: Version,
 	}
 
-	startCmd := startCommand(options.Consumer, options.Storage, options.Client, loggerOptions)
+	startCmd := startCommand(options.Consumer, options.Client, loggerOptions)
 	rootCmd.AddCommand(startCmd)
 	err = viper.BindPFlags(startCmd.Flags())
 	if err != nil {

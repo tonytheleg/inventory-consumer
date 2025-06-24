@@ -12,10 +12,9 @@ import (
 	"github.com/tonytheleg/inventory-consumer/consumer"
 	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
 	"github.com/tonytheleg/inventory-consumer/internal/common"
-	"github.com/tonytheleg/inventory-consumer/internal/storage"
 )
 
-func startCommand(consumerOptions *consumer.Options, storageOptions *storage.Options, clientOptions *kessel.Options, loggerOptions common.LoggerOptions) *cobra.Command {
+func startCommand(consumerOptions *consumer.Options, clientOptions *kessel.Options, loggerOptions common.LoggerOptions) *cobra.Command {
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Starts the Inventory Resource Consumer",
@@ -24,19 +23,6 @@ subscribed to the provided topic`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, logger := common.InitLogger(common.GetLogLevel(), loggerOptions)
 			logHelper := log.NewHelper(log.With(logger, "subsystem", "inventoryConsumer"))
-
-			// configure storage
-			if errs := storageOptions.Complete(); errs != nil {
-				return fmt.Errorf("failed to setup storage options: %v", errs)
-			}
-			if errs := storageOptions.Validate(); errs != nil {
-				return fmt.Errorf("storage options validation error: %v", errs)
-			}
-			storageConfig := storage.NewConfig(storageOptions).Complete()
-			db, err := storage.New(storageConfig, log.NewHelper(log.With(logger, "subsystem", "storage")))
-			if err != nil {
-				return err
-			}
 
 			// configure consumer
 			if errs = consumerOptions.Complete(); errs != nil {
@@ -71,7 +57,7 @@ subscribed to the provided topic`,
 
 			srvErrs := make(chan error)
 			go func() {
-				srvErrs <- icrg.Run(consumerOptions, consumerConfig, db, client, logHelper)
+				srvErrs <- icrg.Run(consumerOptions, consumerConfig, client, logHelper)
 			}()
 			select {
 			case <-quit:
@@ -84,7 +70,6 @@ subscribed to the provided topic`,
 		},
 	}
 	consumerOptions.AddFlags(startCmd.Flags(), "consumer")
-	storageOptions.AddFlags(startCmd.Flags(), "storage")
 	clientOptions.AddFlags(startCmd.Flags(), "client")
 	return startCmd
 }
