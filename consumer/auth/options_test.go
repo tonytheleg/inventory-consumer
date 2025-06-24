@@ -15,7 +15,7 @@ func TestNewOptions(t *testing.T) {
 	}{
 		options: NewOptions(),
 		expectedOptions: &Options{
-			Enabled: true,
+			Enabled: false,
 		},
 	}
 	assert.Equal(t, test.expectedOptions, NewOptions())

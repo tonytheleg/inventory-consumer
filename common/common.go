@@ -11,12 +11,19 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
 type LoggerOptions struct {
 	ServiceName    string
 	ServiceVersion string
+}
+
+func GetLogLevel() string {
+	logLevel := viper.GetString("log.level")
+	fmt.Printf("Log Level is set to: %s\n", logLevel)
+	return logLevel
 }
 
 func ToPointer[T any](v T) *T {

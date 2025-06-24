@@ -13,15 +13,15 @@ import (
 	"github.com/tonytheleg/inventory-consumer/consumer"
 )
 
-func startCommand(options *consumer.Options) *cobra.Command {
+func startCommand(options *consumer.Options, loggerOptions common.LoggerOptions) *cobra.Command {
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Starts the Inventory Resource Consumer",
 		Long: `Starts the Inventory Resource Consumer in the specified environment,
 subscribed to the provided topic`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, l := common.InitLogger("info", common.LoggerOptions{})
-			logger := log.NewHelper(log.With(l, "subsystem", "ircg"))
+			_, logger := common.InitLogger(common.GetLogLevel(), loggerOptions)
+			logHelper := log.NewHelper(log.With(logger, "subsystem", "inventoryConsumer"))
 
 			if errs = options.Complete(); errs != nil {
 				return fmt.Errorf("failed to complete options: %v", errs)
@@ -41,11 +41,13 @@ subscribed to the provided topic`,
 
 			srvErrs := make(chan error)
 			go func() {
-				srvErrs <- icrg.Run(options, consumerConfig, logger)
+				srvErrs <- icrg.Run(options, consumerConfig, logHelper)
 			}()
 			select {
+			case <-quit:
+				shutdown(&icrg, logHelper, fmt.Errorf("received signal \"quit\", shutting down"))
 			case err := <-srvErrs:
-				shutdown(&icrg, logger, err)
+				shutdown(&icrg, logHelper, err)
 			}
 			return nil
 
