@@ -318,6 +318,8 @@ github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b h1:0LFwY6Q3g
 github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
 github.com/project-kessel/inventory-api v0.0.0-20250619143533-0247b301d7c5 h1:GWBpl7w/2GGTZH1XCj3CNM97qs3XgMn1wBVdV4PufQE=
 github.com/project-kessel/inventory-api v0.0.0-20250619143533-0247b301d7c5/go.mod h1:y+E05Wml5sg63inIsrdLOFlObQFzy0SUvwmQZQNF+v0=
+github.com/project-kessel/inventory-client-go v0.0.0-20250424151038-8425c8f4f969 h1:OGdQRUN1E96aY1XoaFar2b6QyUchTFrG6OXqb2JWERw=
+github.com/project-kessel/inventory-client-go v0.0.0-20250424151038-8425c8f4f969/go.mod h1:A2F4FxZ4tPJKYuS4T0ZGlJf0a1zK2dploXw6zPioUmE=
 github.com/project-kessel/relations-api v0.0.0-20250617135051-a08c87740804 h1:5ibKwrPY0swtVLxswZ7ZUGC7NC7I3WvzLmHYGj4piEc=
 github.com/project-kessel/relations-api v0.0.0-20250617135051-a08c87740804/go.mod h1:iZp+YVvCrEmtrVzMtDAxRc3Aojt3vwMXDQ5+5UU3490=
 github.com/prometheus/client_golang v1.22.0 h1:rb93p9lokFEsctTys46VnV1kLCDpVZ0a/Y92Vm0Zc6Q=

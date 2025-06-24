@@ -10,11 +10,12 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/spf13/cobra"
 	"github.com/tonytheleg/inventory-consumer/consumer"
+	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
 	"github.com/tonytheleg/inventory-consumer/internal/common"
 	"github.com/tonytheleg/inventory-consumer/internal/storage"
 )
 
-func startCommand(consumerOptions *consumer.Options, storageOptions *storage.Options, loggerOptions common.LoggerOptions) *cobra.Command {
+func startCommand(consumerOptions *consumer.Options, storageOptions *storage.Options, clientOptions *kessel.Options, loggerOptions common.LoggerOptions) *cobra.Command {
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Starts the Inventory Resource Consumer",
@@ -44,9 +45,25 @@ subscribed to the provided topic`,
 			if errs = consumerOptions.Validate(); errs != nil {
 				return fmt.Errorf("consumer options validation error: %v", errs)
 			}
-			consumerConfig, errs = consumer.NewConfig(consumerOptions).Complete()
+			consumerConfig, errs := consumer.NewConfig(consumerOptions).Complete()
 			if errs != nil {
 				return fmt.Errorf("failed to setup consumer config: %v", errs)
+			}
+
+			// configure inventory client
+			if errs = clientOptions.Complete(); errs != nil {
+				return fmt.Errorf("failed to setup client options: %v", errs)
+			}
+			if errs = clientOptions.Validate(); errs != nil {
+				return fmt.Errorf("client options validation error: %v", errs)
+			}
+			clientConfig, errs := kessel.NewConfig(clientOptions).Complete()
+			if errs != nil {
+				return fmt.Errorf("failed to setup client config: %v", errs)
+			}
+			client, err := kessel.New(clientConfig, log.NewHelper(log.With(logger, "subsystem", "client")))
+			if err != nil {
+				return fmt.Errorf("failed to instantiate client: %v", errs)
 			}
 
 			quit := make(chan os.Signal, 1)
@@ -54,7 +71,7 @@ subscribed to the provided topic`,
 
 			srvErrs := make(chan error)
 			go func() {
-				srvErrs <- icrg.Run(consumerOptions, consumerConfig, db, logHelper)
+				srvErrs <- icrg.Run(consumerOptions, consumerConfig, db, client, logHelper)
 			}()
 			select {
 			case <-quit:
@@ -68,6 +85,7 @@ subscribed to the provided topic`,
 	}
 	consumerOptions.AddFlags(startCmd.Flags(), "consumer")
 	storageOptions.AddFlags(startCmd.Flags(), "storage")
+	clientOptions.AddFlags(startCmd.Flags(), "client")
 	return startCmd
 }
 

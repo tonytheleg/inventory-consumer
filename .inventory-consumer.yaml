@@ -17,5 +17,10 @@ storage:
     user: "postgres"
     password: "yPsw5e6ab4bvAGe5H"
     dbname: "spicedb"
+client:
+  enabled: false
+  url: "localhost:8000"
+  enable-oidc-auth: false
+  insecure: true
 log:
   level: "debug"

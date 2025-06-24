@@ -7,6 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/tonytheleg/inventory-consumer/consumer"
+	"github.com/tonytheleg/inventory-consumer/internal/client"
 	"github.com/tonytheleg/inventory-consumer/internal/storage"
 )
 
@@ -14,6 +15,7 @@ import (
 type OptionsConfig struct {
 	Consumer *consumer.Options
 	Storage  *storage.Options
+	Client   *kessel.Options
 }
 
 // NewOptionsConfig returns a new OptionsConfig with default options set
@@ -21,6 +23,7 @@ func NewOptionsConfig() *OptionsConfig {
 	return &OptionsConfig{
 		consumer.NewOptions(),
 		storage.NewOptions(),
+		kessel.NewOptions(),
 	}
 }
 
@@ -50,6 +53,14 @@ func LogConfigurationInfo(options *OptionsConfig) {
 			options.Storage.Postgres.SSLRootCert,
 		)
 	}
+
+	//if options.Client.Enabled {
+	//log.Debugf("Client Configuration: URL: %s, Insecure?: %t, Token Endpoint?: %t",
+	//	options.Client.InventoryURL,
+	//	options.Client.Insecure,
+	//	options.Client.TokenEndpoint,
+	//)
+
 }
 
 // // InjectClowdAppConfig updates service options based on values in the ClowdApp AppConfig

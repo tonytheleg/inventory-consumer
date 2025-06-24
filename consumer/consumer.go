@@ -19,7 +19,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
-	v1beta1 "github.com/project-kessel/relations-api/api/kessel/relations/v1beta1"
+	"github.com/project-kessel/inventory-client-go/v1beta1"
 	"gorm.io/gorm"
 )
 
@@ -49,6 +49,7 @@ type Consumer interface {
 // InventoryConsumer defines a Consumer with required clients and configs to call Relations API and update the Inventory DB with consistency tokens
 type InventoryConsumer struct {
 	Consumer      Consumer
+	Client        *v1beta1.InventoryClient
 	OffsetStorage []kafka.TopicPartition
 	Config        CompletedConfig
 	DB            *gorm.DB
@@ -62,7 +63,7 @@ type InventoryConsumer struct {
 }
 
 // New instantiates a new InventoryConsumer
-func New(config CompletedConfig, db *gorm.DB, logger *log.Helper) (InventoryConsumer, error) {
+func New(config CompletedConfig, db *gorm.DB, client *v1beta1.InventoryClient, logger *log.Helper) (InventoryConsumer, error) {
 	logger.Info("Setting up kafka consumer")
 	logger.Debugf("completed kafka config: %+v", config.KafkaConfig)
 	consumer, err := kafka.NewConsumer(config.KafkaConfig)
@@ -95,6 +96,7 @@ func New(config CompletedConfig, db *gorm.DB, logger *log.Helper) (InventoryCons
 
 	return InventoryConsumer{
 		Consumer:         consumer,
+		Client:           client,
 		OffsetStorage:    make([]kafka.TopicPartition, 0),
 		Config:           config,
 		DB:               db,
@@ -118,13 +120,13 @@ type MessagePayload struct {
 }
 
 // Run starts the Consume loop with retry configurations and backoff
-func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, db *gorm.DB, logger *log.Helper) error {
+func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, db *gorm.DB, client *v1beta1.InventoryClient, logger *log.Helper) error {
 	retries := 0
 	for options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
 		// If the consumer cannot process a message, the consumer loop is restarted
 		// This is to ensure we re-read the message and prevent it being dropped and moving to next message.
 		// To re-read the current message, we have to recreate the consumer connection so that the earliest offset is used
-		icrg, err := New(config, nil, logger)
+		icrg, err := New(config, db, client, logger)
 		if err != nil {
 			return err
 		}
@@ -343,49 +345,49 @@ func ParseHeaders(msg *kafka.Message) (map[string]string, error) {
 	return headers, nil
 }
 
-func ParseCreateOrUpdateMessage(msg []byte) (*v1beta1.Relationship, error) {
-	var msgPayload *MessagePayload
-	var tuple *v1beta1.Relationship
+//func ParseCreateOrUpdateMessage(msg []byte) (*v1beta1.Relationship, error) {
+//	var msgPayload *MessagePayload
+//	var tuple *v1beta1.Relationship
+//
+//	// msg value is expected to be a valid JSON body for a single relation
+//	err := json.Unmarshal(msg, &msgPayload)
+//	if err != nil {
+//		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
+//	}
+//
+//	payloadJson, err := json.Marshal(msgPayload.RelationsRequest)
+//	if err != nil {
+//		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
+//	}
+//
+//	err = json.Unmarshal(payloadJson, &tuple)
+//	if err != nil {
+//		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
+//	}
+//	return tuple, nil
+//}
 
-	// msg value is expected to be a valid JSON body for a single relation
-	err := json.Unmarshal(msg, &msgPayload)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
-	}
-
-	payloadJson, err := json.Marshal(msgPayload.RelationsRequest)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
-	}
-
-	err = json.Unmarshal(payloadJson, &tuple)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
-	}
-	return tuple, nil
-}
-
-func ParseDeleteMessage(msg []byte) (*v1beta1.RelationTupleFilter, error) {
-	var msgPayload *MessagePayload
-	var filter *v1beta1.RelationTupleFilter
-
-	// msg value is expected to be a valid JSON body for a single relation
-	err := json.Unmarshal(msg, &msgPayload)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
-	}
-
-	payloadJson, err := json.Marshal(msgPayload.RelationsRequest)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
-	}
-
-	err = json.Unmarshal(payloadJson, &filter)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
-	}
-	return filter, nil
-}
+//func ParseDeleteMessage(msg []byte) (*v1beta1.RelationTupleFilter, error) {
+//	var msgPayload *MessagePayload
+//	var filter *v1beta1.RelationTupleFilter
+//
+//	// msg value is expected to be a valid JSON body for a single relation
+//	err := json.Unmarshal(msg, &msgPayload)
+//	if err != nil {
+//		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
+//	}
+//
+//	payloadJson, err := json.Marshal(msgPayload.RelationsRequest)
+//	if err != nil {
+//		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
+//	}
+//
+//	err = json.Unmarshal(payloadJson, &filter)
+//	if err != nil {
+//		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
+//	}
+//	return filter, nil
+//}
 
 func ParseMessageKey(msg []byte) (string, error) {
 	var msgPayload *KeyPayload

@@ -18,11 +18,10 @@ var (
 	Name    = "inventory-consumer"
 	cfgFile string
 
-	logger         *log.Helper
-	consumerConfig consumer.CompletedConfig
-	icrg           consumer.InventoryConsumer
-	err            error
-	errs           []error
+	logger *log.Helper
+	icrg   consumer.InventoryConsumer
+	err    error
+	errs   []error
 
 	rootCmd = &cobra.Command{
 		Use:     Name,
@@ -72,7 +71,7 @@ func init() {
 		ServiceVersion: Version,
 	}
 
-	startCmd := startCommand(options.Consumer, options.Storage, loggerOptions)
+	startCmd := startCommand(options.Consumer, options.Storage, options.Client, loggerOptions)
 	rootCmd.AddCommand(startCmd)
 	err = viper.BindPFlags(startCmd.Flags())
 	if err != nil {
