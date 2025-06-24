@@ -1,11 +1,11 @@
-package auth
+package sqlite3
 
 import (
 	"testing"
 
+	"github.com/project-kessel/inventory-api/internal/helpers"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"github.com/tonytheleg/inventory-consumer/internal/common"
 )
 
 func TestNewOptions(t *testing.T) {
@@ -15,7 +15,7 @@ func TestNewOptions(t *testing.T) {
 	}{
 		options: NewOptions(),
 		expectedOptions: &Options{
-			Enabled: false,
+			DSN: "inventory.db",
 		},
 	}
 	assert.Equal(t, test.expectedOptions, NewOptions())
@@ -27,9 +27,9 @@ func TestOptions_AddFlags(t *testing.T) {
 	}{
 		options: NewOptions(),
 	}
-	prefix := "consumer.auth"
+	prefix := "consumer.sqlite3"
 	fs := pflag.NewFlagSet("", pflag.ContinueOnError)
 	test.options.AddFlags(fs, prefix)
 
-	common.AllOptionsHaveFlags(t, prefix, fs, *test.options, nil)
+	helpers.AllOptionsHaveFlags(t, prefix, fs, *test.options, nil)
 }

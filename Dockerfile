@@ -12,7 +12,7 @@ ENV CGO_ENABLED 1
 RUN go mod download
 
 COPY cmd ./cmd
-COPY common ./common
+COPY internal/common ./common
 COPY consumer ./consumer
 COPY metrics ./metrics
 COPY main.go Makefile ./

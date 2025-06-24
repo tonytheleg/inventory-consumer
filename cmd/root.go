@@ -8,9 +8,9 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/tonytheleg/inventory-consumer/common"
-	"github.com/tonytheleg/inventory-consumer/config"
 	"github.com/tonytheleg/inventory-consumer/consumer"
+	"github.com/tonytheleg/inventory-consumer/internal/common"
+	"github.com/tonytheleg/inventory-consumer/internal/config"
 )
 
 var (
@@ -72,7 +72,7 @@ func init() {
 		ServiceVersion: Version,
 	}
 
-	startCmd := startCommand(options.Consumer, loggerOptions)
+	startCmd := startCommand(options.Consumer, options.Storage, loggerOptions)
 	rootCmd.AddCommand(startCmd)
 	err = viper.BindPFlags(startCmd.Flags())
 	if err != nil {

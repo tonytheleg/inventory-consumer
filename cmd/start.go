@@ -9,11 +9,12 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/spf13/cobra"
-	"github.com/tonytheleg/inventory-consumer/common"
 	"github.com/tonytheleg/inventory-consumer/consumer"
+	"github.com/tonytheleg/inventory-consumer/internal/common"
+	"github.com/tonytheleg/inventory-consumer/internal/storage"
 )
 
-func startCommand(options *consumer.Options, loggerOptions common.LoggerOptions) *cobra.Command {
+func startCommand(consumerOptions *consumer.Options, storageOptions *storage.Options, loggerOptions common.LoggerOptions) *cobra.Command {
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Starts the Inventory Resource Consumer",
@@ -23,17 +24,29 @@ subscribed to the provided topic`,
 			_, logger := common.InitLogger(common.GetLogLevel(), loggerOptions)
 			logHelper := log.NewHelper(log.With(logger, "subsystem", "inventoryConsumer"))
 
-			if errs = options.Complete(); errs != nil {
-				return fmt.Errorf("failed to complete options: %v", errs)
+			// configure storage
+			if errs := storageOptions.Complete(); errs != nil {
+				return fmt.Errorf("failed to setup storage options: %v", errs)
 			}
-			if errs = options.Validate(); errs != nil {
-				return fmt.Errorf("failed to validate options: %v", errs)
+			if errs := storageOptions.Validate(); errs != nil {
+				return fmt.Errorf("storage options validation error: %v", errs)
 			}
-			if options.Enabled {
-				consumerConfig, errs = consumer.NewConfig(options).Complete()
-				if errs != nil {
-					return fmt.Errorf("failed to setup consumer config: %v", errs)
-				}
+			storageConfig := storage.NewConfig(storageOptions).Complete()
+			db, err := storage.New(storageConfig, log.NewHelper(log.With(logger, "subsystem", "storage")))
+			if err != nil {
+				return err
+			}
+
+			// configure consumer
+			if errs = consumerOptions.Complete(); errs != nil {
+				return fmt.Errorf("failed to setup consumer options: %v", errs)
+			}
+			if errs = consumerOptions.Validate(); errs != nil {
+				return fmt.Errorf("consumer options validation error: %v", errs)
+			}
+			consumerConfig, errs = consumer.NewConfig(consumerOptions).Complete()
+			if errs != nil {
+				return fmt.Errorf("failed to setup consumer config: %v", errs)
 			}
 
 			quit := make(chan os.Signal, 1)
@@ -41,7 +54,7 @@ subscribed to the provided topic`,
 
 			srvErrs := make(chan error)
 			go func() {
-				srvErrs <- icrg.Run(options, consumerConfig, logHelper)
+				srvErrs <- icrg.Run(consumerOptions, consumerConfig, db, logHelper)
 			}()
 			select {
 			case <-quit:
@@ -53,7 +66,8 @@ subscribed to the provided topic`,
 
 		},
 	}
-	options.AddFlags(startCmd.Flags(), "consumer")
+	consumerOptions.AddFlags(startCmd.Flags(), "consumer")
+	storageOptions.AddFlags(startCmd.Flags(), "storage")
 	return startCmd
 }
 

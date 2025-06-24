@@ -118,7 +118,7 @@ type MessagePayload struct {
 }
 
 // Run starts the Consume loop with retry configurations and backoff
-func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, logger *log.Helper) error {
+func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, db *gorm.DB, logger *log.Helper) error {
 	retries := 0
 	for options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
 		// If the consumer cannot process a message, the consumer loop is restarted
@@ -194,7 +194,7 @@ func (i *InventoryConsumer) Consume() error {
 					continue
 				}
 
-				if operation != string(OperationTypeDeleted) {
+				if operation != OperationTypeDeleted {
 					_, err := ParseMessageKey(e.Key)
 					if err != nil {
 						metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseMessageKey", err)
@@ -253,7 +253,7 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 	operation := headers["operation"]
 
 	switch operation {
-	case string(OperationTypeCreated):
+	case OperationTypeCreated:
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message tuple=%s", msg.Value)
 		/* Convert to inventory calls
@@ -274,7 +274,7 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 		   			return resp, nil
 		   		}
 		*/
-	case string(OperationTypeUpdated):
+	case OperationTypeUpdated:
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message tuple=%s", msg.Value)
 		/* Convert to inventory calls
@@ -295,7 +295,7 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 			return resp, nil
 		}
 		*/
-	case string(OperationTypeDeleted):
+	case OperationTypeDeleted:
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message tuple=%s", msg.Value)
 		/* Convert to inventory calls

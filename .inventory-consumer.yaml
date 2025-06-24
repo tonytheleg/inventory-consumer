@@ -7,5 +7,15 @@ consumer:
     backoff-factor: 5
   auth:
     enabled: false
+storage:
+  disable-persistence: false
+  max-serialization-retries: 10
+  database: postgres
+  postgres:
+    host: "localhost"
+    port: "5433"
+    user: "postgres"
+    password: "yPsw5e6ab4bvAGe5H"
+    dbname: "spicedb"
 log:
   level: "debug"

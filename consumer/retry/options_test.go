@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"github.com/tonytheleg/inventory-consumer/common"
+	"github.com/tonytheleg/inventory-consumer/internal/common"
 )
 
 func TestNewOptions(t *testing.T) {
