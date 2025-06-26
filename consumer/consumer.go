@@ -12,16 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/go-kratos/kratos/v2/log"
+	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	v1beta2 "github.com/project-kessel/inventory-client-go/v1beta2"
 	"github.com/tonytheleg/inventory-consumer/consumer/auth"
 	"github.com/tonytheleg/inventory-consumer/consumer/retry"
 	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
 	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
 	"go.opentelemetry.io/otel/attribute"
-	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 const (
@@ -31,20 +30,6 @@ const (
 	OperationTypeCreated = "created"
 	OperationTypeUpdated = "updated"
 	OperationTypeDeleted = "deleted"
-)
-
-// TEMP FOR TESTING
-var (
-	CommonData, _ = structpb.NewStruct(map[string]interface{}{
-		"workspace_id": "ExampleResource",
-	})
-
-	ReporterData, _ = structpb.NewStruct(map[string]interface{}{
-		"satellite_id":          "21b4d79e-34ec-441d-8018-5f8985bb0413",
-		"sub_manager_id":        "21b4d79e-34ec-441d-8018-5f8985bb0413",
-		"insights_inventory_id": "21b4d79e-34ec-441d-8018-5f8985bb0413",
-		"ansible_host":          "abddc",
-	})
 )
 
 // defines all required headers for message processing
@@ -120,14 +105,14 @@ func New(config CompletedConfig, client *v1beta2.InventoryClient, logger *log.He
 
 // KeyPayload stores the event message key captured from the topic as emitted by Debezium
 type KeyPayload struct {
-	MessageSchema map[string]interface{} `json:"schema"`
-	InventoryID   string                 `json:"payload"`
+	MessageSchema   map[string]interface{} `json:"schema"`
+	LocalResourceID string                 `json:"payload"`
 }
 
 // MessagePayload stores the event message value captured from the topic as emitted by Debezium
 type MessagePayload struct {
-	MessageSchema    map[string]interface{} `json:"schema"`
-	RelationsRequest interface{}            `json:"payload"`
+	MessageSchema         map[string]interface{} `json:"schema"`
+	ReportResourceRequest interface{}            `json:"payload"`
 }
 
 // Run starts the Consume loop with retry configurations and backoff
@@ -267,26 +252,41 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 	case OperationTypeCreated, OperationTypeUpdated:
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
-		// temp logic for testing
-		resp, err := kessel.CreateOrUpdateResource(i.Client, CommonData, ReporterData)
+
+		req, err := ParseCreateOrUpdateMessage(msg.Value)
+		if err != nil {
+			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseCreateOrUpdateMessage", err)
+			i.Logger.Errorf("failed to parse message for tuple: %v", err)
+			return err
+		}
+
+		resp, err := kessel.CreateOrUpdateResource(i.Client, req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
 			i.Logger.Errorf("failed to create resource: %v", err)
 			return err
 		}
-		i.Logger.Infof("response: %v+", resp)
+		i.Logger.Infof("response: %+v", resp)
 		return nil
 
 	case OperationTypeDeleted:
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
-		resp, err := kessel.DeleteResource(i.Client)
+
+		req, err := ParseDeleteMessage(msg.Value)
+		if err != nil {
+			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseDeleteMessage", err)
+			i.Logger.Errorf("failed to parse message for filter: %v", err)
+			return err
+		}
+
+		resp, err := kessel.DeleteResource(i.Client, req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
 			i.Logger.Errorf("failed to create resource: %v", err)
 			return err
 		}
-		i.Logger.Infof("response: %v+", resp)
+		i.Logger.Infof("response: %+v", resp)
 		return nil
 
 	default:
@@ -316,49 +316,49 @@ func ParseHeaders(msg *kafka.Message) (map[string]string, error) {
 	return headers, nil
 }
 
-//func ParseCreateOrUpdateMessage(msg []byte) (*v1beta1.Relationship, error) {
-//	var msgPayload *MessagePayload
-//	var tuple *v1beta1.Relationship
-//
-//	// msg value is expected to be a valid JSON body for a single relation
-//	err := json.Unmarshal(msg, &msgPayload)
-//	if err != nil {
-//		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
-//	}
-//
-//	payloadJson, err := json.Marshal(msgPayload.RelationsRequest)
-//	if err != nil {
-//		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
-//	}
-//
-//	err = json.Unmarshal(payloadJson, &tuple)
-//	if err != nil {
-//		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
-//	}
-//	return tuple, nil
-//}
+func ParseCreateOrUpdateMessage(msg []byte) (*kesselv2.ReportResourceRequest, error) {
+	var msgPayload *MessagePayload
+	var req *kesselv2.ReportResourceRequest
 
-//func ParseDeleteMessage(msg []byte) (*v1beta1.RelationTupleFilter, error) {
-//	var msgPayload *MessagePayload
-//	var filter *v1beta1.RelationTupleFilter
-//
-//	// msg value is expected to be a valid JSON body for a single relation
-//	err := json.Unmarshal(msg, &msgPayload)
-//	if err != nil {
-//		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
-//	}
-//
-//	payloadJson, err := json.Marshal(msgPayload.RelationsRequest)
-//	if err != nil {
-//		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
-//	}
-//
-//	err = json.Unmarshal(payloadJson, &filter)
-//	if err != nil {
-//		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
-//	}
-//	return filter, nil
-//}
+	// msg value is expected to be a valid JSON body for a single relation
+	err := json.Unmarshal(msg, &msgPayload)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
+	}
+
+	payloadJson, err := json.Marshal(msgPayload.ReportResourceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling request payload: %v", err)
+	}
+
+	err = json.Unmarshal(payloadJson, &req)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling request payload: %v", err)
+	}
+	return req, nil
+}
+
+func ParseDeleteMessage(msg []byte) (*kesselv2.DeleteResourceRequest, error) {
+	var msgPayload *MessagePayload
+	var req *kesselv2.DeleteResourceRequest
+
+	// msg value is expected to be a valid JSON body for a single relation
+	err := json.Unmarshal(msg, &msgPayload)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
+	}
+
+	payloadJson, err := json.Marshal(msgPayload.ReportResourceRequest)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
+	}
+
+	err = json.Unmarshal(payloadJson, &req)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
+	}
+	return req, nil
+}
 
 func ParseMessageKey(msg []byte) (string, error) {
 	var msgPayload *KeyPayload
@@ -368,7 +368,7 @@ func ParseMessageKey(msg []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error unmarshaling msgPayload: %v", err)
 	}
-	return msgPayload.InventoryID, nil
+	return msgPayload.LocalResourceID, nil
 }
 
 // checkIfCommit returns true whenever the condition to commit a batch of offsets is met
