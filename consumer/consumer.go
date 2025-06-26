@@ -12,22 +12,39 @@ import (
 	"syscall"
 	"time"
 
+	v1beta2 "github.com/project-kessel/inventory-client-go/v1beta2"
 	"github.com/tonytheleg/inventory-consumer/consumer/auth"
 	"github.com/tonytheleg/inventory-consumer/consumer/retry"
+	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
 	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
 	"go.opentelemetry.io/otel/attribute"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/project-kessel/inventory-client-go/v1beta1"
 )
 
 const (
 	// commitModulo is used to define the batch size of offsets based on the current offset being processed
-	commitModulo         = 10
+	commitModulo = 10
+
 	OperationTypeCreated = "created"
 	OperationTypeUpdated = "updated"
 	OperationTypeDeleted = "deleted"
+)
+
+// TEMP FOR TESTING
+var (
+	CommonData, _ = structpb.NewStruct(map[string]interface{}{
+		"workspace_id": "ExampleResource",
+	})
+
+	ReporterData, _ = structpb.NewStruct(map[string]interface{}{
+		"satellite_id":          "21b4d79e-34ec-441d-8018-5f8985bb0413",
+		"sub_manager_id":        "21b4d79e-34ec-441d-8018-5f8985bb0413",
+		"insights_inventory_id": "21b4d79e-34ec-441d-8018-5f8985bb0413",
+		"ansible_host":          "abddc",
+	})
 )
 
 // defines all required headers for message processing
@@ -47,21 +64,18 @@ type Consumer interface {
 
 // InventoryConsumer defines a Consumer with required clients and configs to call Relations API and update the Inventory DB with consistency tokens
 type InventoryConsumer struct {
-	Consumer      Consumer
-	Client        *v1beta1.InventoryClient
-	OffsetStorage []kafka.TopicPartition
-	Config        CompletedConfig
-	// AuthzConfig      authz.CompletedConfig	// Sets up Kessl AuthZ
-	// Authorizer       api.Authorizer			// needs to be replaced with inventory client
+	Consumer         Consumer
+	Client           *v1beta2.InventoryClient
+	OffsetStorage    []kafka.TopicPartition
+	Config           CompletedConfig
 	MetricsCollector *metricscollector.MetricsCollector
 	Logger           *log.Helper
 	AuthOptions      *auth.Options
 	RetryOptions     *retry.Options
-	// Notifier     pubsub.Notifier 			// R-A-W out of scope for external consumer for now
 }
 
 // New instantiates a new InventoryConsumer
-func New(config CompletedConfig, client *v1beta1.InventoryClient, logger *log.Helper) (InventoryConsumer, error) {
+func New(config CompletedConfig, client *v1beta2.InventoryClient, logger *log.Helper) (InventoryConsumer, error) {
 	logger.Info("Setting up kafka consumer")
 	logger.Debugf("completed kafka config: %+v", config.KafkaConfig)
 	consumer, err := kafka.NewConsumer(config.KafkaConfig)
@@ -117,7 +131,7 @@ type MessagePayload struct {
 }
 
 // Run starts the Consume loop with retry configurations and backoff
-func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, client *v1beta1.InventoryClient, logger *log.Helper) error {
+func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, client *v1beta2.InventoryClient, logger *log.Helper) error {
 	retries := 0
 	for options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
 		// If the consumer cannot process a message, the consumer loop is restarted
@@ -182,9 +196,7 @@ func (i *InventoryConsumer) Consume() error {
 				}
 				operation := headers["operation"]
 
-				//var resp interface{}
-
-				_, err = i.ProcessMessage(headers, e)
+				err = i.ProcessMessage(headers, e)
 				if err != nil {
 					i.Logger.Errorf(
 						"error processing message: topic=%s partition=%d offset=%s",
@@ -248,79 +260,41 @@ func (i *InventoryConsumer) Consume() error {
 	return err
 }
 
-func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka.Message) (string, error) {
+func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka.Message) error {
 	operation := headers["operation"]
 
 	switch operation {
-	case OperationTypeCreated:
+	case OperationTypeCreated, OperationTypeUpdated:
 		i.Logger.Infof("processing message: operation=%s", operation)
-		i.Logger.Debugf("processed message tuple=%s", msg.Value)
-		/* Convert to inventory calls
-		   			tuple, err := ParseCreateOrUpdateMessage(msg.Value)
-		    			if err != nil {
-		   				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseCreateOrUpdateMessage", err)
-		   				i.Logger.Errorf("failed to parse message for tuple: %v", err)
-		   				return "", err
-		   			}
-		   			resp, err := i.Retry(func() (string, error) {
-		   				return i.CreateTuple(context.Background(), tuple)
-		   			})
-		   			if err != nil {
-		   				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateTuple", err)
-		   				i.Logger.Errorf("failed to create tuple: %v", err)
-		   				return "", err
-		   			}
-		   			return resp, nil
-		   		}
-		*/
-	case OperationTypeUpdated:
-		i.Logger.Infof("processing message: operation=%s", operation)
-		i.Logger.Debugf("processed message tuple=%s", msg.Value)
-		/* Convert to inventory calls
-			tuple, err := ParseCreateOrUpdateMessage(msg.Value)
-			if err != nil {
-				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseCreateOrUpdateMessage", err)
-				i.Logger.Errorf("failed to parse message for tuple: %v", err)
-				return "", err
-			}
-			resp, err := i.Retry(func() (string, error) {
-				return i.UpdateTuple(context.Background(), tuple)
-			})
-			if err != nil {
-				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "UpdateTuple", err)
-				i.Logger.Errorf("failed to update tuple: %v", err)
-				return "", err
-			}
-			return resp, nil
+		i.Logger.Debugf("processed message=%s", msg.Value)
+		// temp logic for testing
+		resp, err := kessel.CreateOrUpdateResource(i.Client, CommonData, ReporterData)
+		if err != nil {
+			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
+			i.Logger.Errorf("failed to create resource: %v", err)
+			return err
 		}
-		*/
+		i.Logger.Infof("response: %v+", resp)
+		return nil
+
 	case OperationTypeDeleted:
 		i.Logger.Infof("processing message: operation=%s", operation)
-		i.Logger.Debugf("processed message tuple=%s", msg.Value)
-		/* Convert to inventory calls
-			filter, err := ParseDeleteMessage(msg.Value)
-			if err != nil {
-				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseDeleteMessage", err)
-				i.Logger.Errorf("failed to parse message for filter: %v", err)
-				return "", err
-			}
-			_, err = i.Retry(func() (string, error) {
-				return i.DeleteTuple(context.Background(), filter)
-			})
-			if err != nil {
-				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "DeleteTuple", err)
-				i.Logger.Errorf("failed to delete tuple: %v", err)
-				return "", err
-			}
-			return "", nil
+		i.Logger.Debugf("processed message=%s", msg.Value)
+		resp, err := kessel.DeleteResource(i.Client)
+		if err != nil {
+			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
+			i.Logger.Errorf("failed to create resource: %v", err)
+			return err
 		}
-		*/
+		i.Logger.Infof("response: %v+", resp)
+		return nil
+
 	default:
 		metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "unknown-operation-type", nil)
 		i.Logger.Errorf("unknown operation type, message cannot be processed and will be dropped: offset=%s operation=%s msg=%s",
 			msg.TopicPartition.Offset.String(), operation, msg.Value)
 	}
-	return "", nil
+	return nil
 }
 
 func ParseHeaders(msg *kafka.Message) (map[string]string, error) {

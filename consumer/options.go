@@ -26,9 +26,7 @@ type Options struct {
 
 func NewOptions() *Options {
 	return &Options{
-		Enabled:            true,
 		ConsumerGroupID:    "ircg",
-		Topic:              "outbox.event.kessel.tuples",
 		SessionTimeout:     "45000",
 		HeartbeatInterval:  "3000",
 		MaxPollInterval:    "300000",
@@ -45,7 +43,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 	if prefix != "" {
 		prefix = prefix + "."
 	}
-	fs.BoolVar(&o.Enabled, prefix+"enabled", o.Enabled, "Toggle for enabling or disabling the consumer (default: true)")
 	fs.StringSliceVar(&o.BootstrapServers, prefix+"bootstrap-servers", o.BootstrapServers, "sets the bootstrap server address and port for Kafka")
 	fs.StringVar(&o.ConsumerGroupID, prefix+"consumer-group-id", o.ConsumerGroupID, "sets the Kafka consumer group name (default: inventory-consumer)")
 	fs.StringVar(&o.Topic, prefix+"topic", o.Topic, "Kafka topic to monitor for events")
@@ -64,8 +61,12 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 func (o *Options) Validate() []error {
 	var errs []error
 
-	if len(o.BootstrapServers) == 0 && o.Enabled {
+	if len(o.BootstrapServers) == 0 {
 		errs = append(errs, fmt.Errorf("bootstrap servers can not be empty"))
+	}
+
+	if o.Topic == "" {
+		errs = append(errs, fmt.Errorf("topic value can not be empty"))
 	}
 	return errs
 }
