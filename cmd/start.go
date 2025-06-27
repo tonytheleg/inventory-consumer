@@ -12,6 +12,7 @@ import (
 	"github.com/tonytheleg/inventory-consumer/consumer"
 	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
 	"github.com/tonytheleg/inventory-consumer/internal/common"
+	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
 )
 
 func startCommand(consumerOptions *consumer.Options, clientOptions *kessel.Options, loggerOptions common.LoggerOptions) *cobra.Command {
@@ -54,6 +55,9 @@ subscribed to the provided topic`,
 
 			quit := make(chan os.Signal, 1)
 			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+			log.Info("starting metrics server on port :8088")
+			go metricscollector.ServeMetrics()
 
 			srvErrs := make(chan error)
 			go func() {
