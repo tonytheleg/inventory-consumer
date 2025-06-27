@@ -2,8 +2,10 @@ package metricscollector
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/go-kratos/kratos/v2/middleware/metrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
@@ -36,4 +38,13 @@ func NewMeterProvider() (metric.MeterProvider, error) {
 
 func NewMeter(provider metric.MeterProvider) (metric.Meter, error) {
 	return provider.Meter("inventory-resource-consumer"), nil
+}
+
+func ServeMetrics() {
+	http.Handle("/metrics", promhttp.Handler())
+	err := http.ListenAndServe(":8088", nil)
+	if err != nil {
+		fmt.Printf("error serving metrics: %v", err)
+		return
+	}
 }

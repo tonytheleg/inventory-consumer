@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"os/signal"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -32,11 +30,11 @@ const (
 	OperationTypeDeleted = "deleted"
 )
 
-// defines all required headers for message processing
-var requiredHeaders = []string{"operation"}
-
-var ErrClosed = errors.New("consumer closed")
-var ErrMaxRetries = errors.New("max retries reached")
+var (
+	requiredHeaders = []string{"operation"}
+	ErrClosed       = errors.New("consumer closed")
+	ErrMaxRetries   = errors.New("max retries reached")
+)
 
 type Consumer interface {
 	CommitOffsets(offsets []kafka.TopicPartition) ([]kafka.TopicPartition, error)
@@ -122,22 +120,22 @@ func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, client
 		// If the consumer cannot process a message, the consumer loop is restarted
 		// This is to ensure we re-read the message and prevent it being dropped and moving to next message.
 		// To re-read the current message, we have to recreate the consumer connection so that the earliest offset is used
-		icrg, err := New(config, client, logger)
+		ircg, err := New(config, client, logger)
 		if err != nil {
 			return err
 		}
-		err = icrg.Consume()
+		err = ircg.Consume()
 		if errors.Is(err, ErrClosed) {
-			icrg.Logger.Errorf("consumer unable to process current message -- restarting consumer")
+			ircg.Logger.Errorf("consumer unable to process current message -- restarting consumer")
 			retries++
 			if options.RetryOptions.ConsumerMaxRetries == -1 || retries < options.RetryOptions.ConsumerMaxRetries {
-				backoff := min(time.Duration(icrg.RetryOptions.BackoffFactor*retries*300)*time.Millisecond, time.Duration(options.RetryOptions.MaxBackoffSeconds)*time.Second)
-				icrg.Logger.Errorf("retrying in %v", backoff)
+				backoff := min(time.Duration(ircg.RetryOptions.BackoffFactor*retries*300)*time.Millisecond, time.Duration(options.RetryOptions.MaxBackoffSeconds)*time.Second)
+				ircg.Logger.Errorf("retrying in %v", backoff)
 				time.Sleep(backoff)
 			}
 			continue
 		} else {
-			icrg.Logger.Errorf("consumer unable to process messages: %v", err)
+			ircg.Logger.Errorf("consumer unable to process messages: %v", err)
 			return err
 		}
 	}
@@ -172,7 +170,7 @@ func (i *InventoryConsumer) Consume() error {
 
 			switch e := event.(type) {
 			case *kafka.Message:
-				headers, err := ParseHeaders(e)
+				headers, err := ParseHeaders(e, requiredHeaders)
 				if err != nil {
 					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseHeaders", fmt.Errorf("missing headers"))
 					i.Logger.Errorf("failed to parse message headers: %v", err)
@@ -200,10 +198,10 @@ func (i *InventoryConsumer) Consume() error {
 
 				// store the current offset to be later batch committed
 				i.OffsetStorage = append(i.OffsetStorage, e.TopicPartition)
-				if checkIfCommit(e.TopicPartition) {
-					err := i.commitStoredOffsets()
+				if CheckIfCommit(e.TopicPartition) {
+					err := i.CommitStoredOffsets()
 					if err != nil {
-						metricscollector.Incr(i.MetricsCollector.ConsumerErrors, "commitStoredOffsets", err)
+						metricscollector.Incr(i.MetricsCollector.ConsumerErrors, "CommitStoredOffsets", err)
 						i.Logger.Errorf("failed to commit offsets: %v", err)
 						continue
 					}
@@ -245,6 +243,7 @@ func (i *InventoryConsumer) Consume() error {
 	return err
 }
 
+// ProcessMessage processes an event message and replicates the change to Kessel Inventory
 func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka.Message) error {
 	operation := headers["operation"]
 
@@ -253,14 +252,15 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
-		req, err := ParseCreateOrUpdateMessage(msg.Value)
+		var req kesselv2.ReportResourceRequest
+		err := ParseCreateOrUpdateMessage(msg.Value, &req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseCreateOrUpdateMessage", err)
 			i.Logger.Errorf("failed to parse message for tuple: %v", err)
 			return err
 		}
 
-		resp, err := kessel.CreateOrUpdateResource(i.Client, req)
+		resp, err := kessel.CreateOrUpdateResource(i.Client, &req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
 			i.Logger.Errorf("failed to create resource: %v", err)
@@ -273,14 +273,15 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
-		req, err := ParseDeleteMessage(msg.Value)
+		var req kesselv2.DeleteResourceRequest
+		err := ParseDeleteMessage(msg.Value, &req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseDeleteMessage", err)
 			i.Logger.Errorf("failed to parse message for filter: %v", err)
 			return err
 		}
 
-		resp, err := kessel.DeleteResource(i.Client, req)
+		resp, err := kessel.DeleteResource(i.Client, &req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
 			i.Logger.Errorf("failed to create resource: %v", err)
@@ -297,87 +298,13 @@ func (i *InventoryConsumer) ProcessMessage(headers map[string]string, msg *kafka
 	return nil
 }
 
-func ParseHeaders(msg *kafka.Message) (map[string]string, error) {
-	headers := make(map[string]string)
-	for _, v := range msg.Headers {
-		// ignores any extra headers
-		if slices.Contains(requiredHeaders, v.Key) {
-			headers[v.Key] = string(v.Value)
-		}
-	}
-
-	// ensures all required header keys are present after parsing, but only operation is required to have a value to process messages
-	headerKeys := slices.Sorted(maps.Keys(headers))
-	required := slices.Sorted(slices.Values(requiredHeaders))
-
-	if !slices.Equal(headerKeys, required) || headers["operation"] == "" {
-		return nil, fmt.Errorf("required headers are missing which would result in message processing failures: %+v", headers)
-	}
-	return headers, nil
-}
-
-func ParseCreateOrUpdateMessage(msg []byte) (*kesselv2.ReportResourceRequest, error) {
-	var msgPayload *MessagePayload
-	var req *kesselv2.ReportResourceRequest
-
-	// msg value is expected to be a valid JSON body for a single relation
-	err := json.Unmarshal(msg, &msgPayload)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
-	}
-
-	payloadJson, err := json.Marshal(msgPayload.ReportResourceRequest)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling request payload: %v", err)
-	}
-
-	err = json.Unmarshal(payloadJson, &req)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling request payload: %v", err)
-	}
-	return req, nil
-}
-
-func ParseDeleteMessage(msg []byte) (*kesselv2.DeleteResourceRequest, error) {
-	var msgPayload *MessagePayload
-	var req *kesselv2.DeleteResourceRequest
-
-	// msg value is expected to be a valid JSON body for a single relation
-	err := json.Unmarshal(msg, &msgPayload)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling msgPayload: %v", err)
-	}
-
-	payloadJson, err := json.Marshal(msgPayload.ReportResourceRequest)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling tuple payload: %v", err)
-	}
-
-	err = json.Unmarshal(payloadJson, &req)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling tuple payload: %v", err)
-	}
-	return req, nil
-}
-
-func ParseMessageKey(msg []byte) (string, error) {
-	var msgPayload *KeyPayload
-
-	// msg key is expected to be the inventory_id of a resource
-	err := json.Unmarshal(msg, &msgPayload)
-	if err != nil {
-		return "", fmt.Errorf("error unmarshaling msgPayload: %v", err)
-	}
-	return msgPayload.LocalResourceID, nil
-}
-
-// checkIfCommit returns true whenever the condition to commit a batch of offsets is met
-func checkIfCommit(partition kafka.TopicPartition) bool {
+// CheckIfCommit returns true whenever the condition to commit a batch of offsets is met
+func CheckIfCommit(partition kafka.TopicPartition) bool {
 	return partition.Offset%commitModulo == 0
 }
 
-// formatOffsets converts a slice of partitions with offset data into a more readable shorthand-coded string to capture what partitions and offsets were comitted
-func formatOffsets(offsets []kafka.TopicPartition) string {
+// FormatOffsets converts a slice of partitions with offset data into a more readable shorthand-coded string to capture what partitions and offsets were comitted
+func FormatOffsets(offsets []kafka.TopicPartition) string {
 	var committedOffsets []string
 	for _, partition := range offsets {
 		committedOffsets = append(committedOffsets, fmt.Sprintf("[%d:%s]", partition.Partition, partition.Offset.String()))
@@ -385,14 +312,14 @@ func formatOffsets(offsets []kafka.TopicPartition) string {
 	return strings.Join(committedOffsets, ",")
 }
 
-// commitStoredOffsets commits offsets for all processed messages since last offset commit
-func (i *InventoryConsumer) commitStoredOffsets() error {
+// CommitStoredOffsets commits offsets for all processed messages since last offset commit
+func (i *InventoryConsumer) CommitStoredOffsets() error {
 	committed, err := i.Consumer.CommitOffsets(i.OffsetStorage)
 	if err != nil {
 		return err
 	}
 
-	i.Logger.Infof("offsets committed ([partition:offset]): %s", formatOffsets(committed))
+	i.Logger.Infof("offsets committed ([partition:offset]): %s", FormatOffsets(committed))
 	i.OffsetStorage = nil
 	return nil
 }
@@ -402,7 +329,7 @@ func (i *InventoryConsumer) Shutdown() error {
 	if !i.Consumer.IsClosed() {
 		i.Logger.Info("shutting down consumer...")
 		if len(i.OffsetStorage) > 0 {
-			err := i.commitStoredOffsets()
+			err := i.CommitStoredOffsets()
 			if err != nil {
 				i.Logger.Errorf("failed to commit offsets before shutting down: %v", err)
 			}
@@ -442,8 +369,10 @@ func (i *InventoryConsumer) Retry(operation func() (string, error)) (string, err
 	return "", ErrMaxRetries
 }
 
-// RebalanceCallback logs when rebalance events occur and ensures any stored offsets are committed before losing the partition assignment. It is registered to the kafka 'SubscribeTopics' call and is invoked  automatically whenever rebalances occurs.
-// Note, the RebalanceCb function must satisfy the function type func(*Consumer, Event). This function does so, but the consumer embedded in the InventoryConsumer is used versus the passed one which is the same consumer in either case.
+// RebalanceCallback logs when rebalance events occur and ensures any stored offsets are committed before losing the partition assignment.
+// It is registered to the kafka 'SubscribeTopics' call and is invoked automatically whenever rebalances occurs.
+// Note, the RebalanceCb function must satisfy the function type func(*Consumer, Event).
+// This function does so, but the consumer embedded in the InventoryConsumer is used versus the passed one which is the same consumer in either case.
 func (i *InventoryConsumer) RebalanceCallback(consumer *kafka.Consumer, event kafka.Event) error {
 	switch ev := event.(type) {
 	case kafka.AssignedPartitions:
@@ -457,7 +386,7 @@ func (i *InventoryConsumer) RebalanceCallback(consumer *kafka.Consumer, event ka
 		if i.Consumer.AssignmentLost() {
 			i.Logger.Warn("Assignment lost involuntarily, commit may fail")
 		}
-		err := i.commitStoredOffsets()
+		err := i.CommitStoredOffsets()
 		if err != nil {
 			i.Logger.Errorf("failed to commit offsets: %v", err)
 			return err
