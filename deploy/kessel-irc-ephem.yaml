@@ -37,11 +37,12 @@ objects:
         replicas: 3
       optionalDependencies:
         - kessel-inventory
+        - kessel-relations
       deployments:
         - name: service
           replicas: ${{REPLICAS}}
           podSpec:
-            image: ${INVENTORY_IMAGE}:${IMAGE_TAG}
+            image: ${IRC_IMAGE}:${IMAGE_TAG}
             imagePullPolicy: Always
             command: ["inventory-consumer"]
             args: ["start"]
@@ -66,7 +67,7 @@ parameters:
     name: ENV_NAME
     required: true
   - description: App Image
-    name: INVENTORY_IMAGE
+    name: IRC_IMAGE
     value: quay.io/anatale/inventory-resource-consumer
   - description: Image Tag
     name: IMAGE_TAG
