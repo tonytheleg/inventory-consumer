@@ -67,7 +67,7 @@ parameters:
     required: true
   - description: App Image
     name: INVENTORY_IMAGE
-    value: quay.io/anatale/inventory-consumer
+    value: quay.io/anatale/inventory-resource-consumer
   - description: Image Tag
     name: IMAGE_TAG
     required: true
