@@ -42,7 +42,7 @@ func NewMeter(provider metric.MeterProvider) (metric.Meter, error) {
 
 func ServeMetrics() {
 	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(":8088", nil)
+	err := http.ListenAndServe(":9000", nil)
 	if err != nil {
 		fmt.Printf("error serving metrics: %v", err)
 		return
