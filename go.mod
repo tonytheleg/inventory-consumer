@@ -6,7 +6,10 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
 	github.com/confluentinc/confluent-kafka-go/v2 v2.10.1
 	github.com/go-kratos/kratos/v2 v2.8.4
+	github.com/project-kessel/inventory-api v0.0.0-20250619143533-0247b301d7c5
 	github.com/project-kessel/inventory-client-go v0.0.0-20250507151904-9921f1bf1e8e
+	github.com/prometheus/client_golang v1.22.0
+	github.com/redhatinsights/app-common-go v1.6.8
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
@@ -46,8 +49,6 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/project-kessel/inventory-api v0.0.0-20250619143533-0247b301d7c5 // indirect
-	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect

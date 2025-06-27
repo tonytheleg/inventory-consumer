@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-kratos/kratos/v2/log"
+	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/tonytheleg/inventory-consumer/consumer"
@@ -64,6 +65,13 @@ func init() {
 	err := viper.BindPFlags(rootCmd.PersistentFlags())
 	if err != nil {
 		panic(err)
+	}
+
+	if clowder.IsClowderEnabled() {
+		err := options.InjectClowdAppConfig(clowder.LoadedConfig)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	loggerOptions := common.LoggerOptions{

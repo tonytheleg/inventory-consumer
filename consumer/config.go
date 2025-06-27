@@ -10,7 +10,7 @@ import (
 	"github.com/tonytheleg/inventory-consumer/consumer/retry"
 )
 
-const clientID = "inventory-consumer"
+const clientID = "ircg"
 
 type Config struct {
 	*Options

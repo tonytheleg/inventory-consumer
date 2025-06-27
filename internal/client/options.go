@@ -7,6 +7,7 @@ import (
 )
 
 type Options struct {
+	Enabled        bool   `mapstructure:"enabled"`
 	InventoryURL   string `mapstructure:"url"`
 	Insecure       bool   `mapstructure:"insecure-client"`
 	EnableOidcAuth bool   `mapstructure:"enable-oidc-auth"`
@@ -17,6 +18,7 @@ type Options struct {
 
 func NewOptions() *Options {
 	return &Options{
+		Enabled:        true,
 		Insecure:       true,
 		EnableOidcAuth: false,
 	}
@@ -26,7 +28,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 	if prefix != "" {
 		prefix = prefix + "."
 	}
-	fs.StringVar(&o.InventoryURL, prefix+"url", o.InventoryURL, "gRPC endpoint of the Inventory API service.")
+	fs.BoolVar(&o.Enabled, prefix+"enabled", o.Enabled, "enable the kessel inventory grpc client")
+	fs.StringVar(&o.InventoryURL, prefix+"url", o.InventoryURL, "gRPC endpoint of the kessel inventory service.")
 	fs.StringVar(&o.ClientId, prefix+"sa-client-id", o.ClientId, "service account client id")
 	fs.StringVar(&o.ClientSecret, prefix+"sa-client-secret", o.ClientSecret, "service account secret")
 	fs.StringVar(&o.TokenEndpoint, prefix+"sso-token-endpoint", o.TokenEndpoint, "sso token endpoint for authentication")

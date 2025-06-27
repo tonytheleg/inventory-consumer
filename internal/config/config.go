@@ -1,9 +1,13 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/go-kratos/kratos/v2/log"
+	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/tonytheleg/inventory-consumer/consumer"
 	"github.com/tonytheleg/inventory-consumer/internal/client"
+	"github.com/tonytheleg/inventory-consumer/internal/common"
 )
 
 // OptionsConfig contains the settings for each configuration option
@@ -46,31 +50,30 @@ func LogConfigurationInfo(options *OptionsConfig) {
 
 }
 
-// // InjectClowdAppConfig updates service options based on values in the ClowdApp AppConfig
-//
-//	func (o *OptionsConfig) InjectClowdAppConfig(appconfig *clowder.AppConfig) error {
-//		// check for consumer config
-//		if !common.IsNil(appconfig.Kafka) {
-//			o.ConfigureConsumer(appconfig)
-//		}
-//		return nil
-//	}
+// InjectClowdAppConfig updates service options based on values in the ClowdApp AppConfig
+func (o *OptionsConfig) InjectClowdAppConfig(appconfig *clowder.AppConfig) error {
+	// check for consumer config
+	if !common.IsNil(appconfig.Kafka) {
+		o.ConfigureConsumer(appconfig)
+	}
+	return nil
+}
 
-//// ConfigureConsumer updates Consumer settings based on ClowdApp AppConfig
-//func (o *OptionsConfig) ConfigureConsumer(appconfig *clowder.AppConfig) {
-//	var brokers []string
-//	for _, broker := range appconfig.Kafka.Brokers {
-//		brokers = append(brokers, fmt.Sprintf("%s:%d", broker.Hostname, *broker.Port))
-//	}
-//	o.Consumer.BootstrapServers = brokers
-//
-//	if len(appconfig.Kafka.Brokers) > 0 && appconfig.Kafka.Brokers[0].SecurityProtocol != nil {
-//		o.Consumer.AuthOptions.SecurityProtocol = *appconfig.Kafka.Brokers[0].SecurityProtocol
-//
-//		if appconfig.Kafka.Brokers[0].Sasl != nil {
-//			o.Consumer.AuthOptions.SASLMechanism = *appconfig.Kafka.Brokers[0].Sasl.SaslMechanism
-//			o.Consumer.AuthOptions.SASLUsername = *appconfig.Kafka.Brokers[0].Sasl.Username
-//			o.Consumer.AuthOptions.SASLPassword = *appconfig.Kafka.Brokers[0].Sasl.Password
-//		}
-//	}
-//}
+// ConfigureConsumer updates Consumer settings based on ClowdApp AppConfig
+func (o *OptionsConfig) ConfigureConsumer(appconfig *clowder.AppConfig) {
+	var brokers []string
+	for _, broker := range appconfig.Kafka.Brokers {
+		brokers = append(brokers, fmt.Sprintf("%s:%d", broker.Hostname, *broker.Port))
+	}
+	o.Consumer.BootstrapServers = brokers
+
+	if len(appconfig.Kafka.Brokers) > 0 && appconfig.Kafka.Brokers[0].SecurityProtocol != nil {
+		o.Consumer.AuthOptions.SecurityProtocol = *appconfig.Kafka.Brokers[0].SecurityProtocol
+
+		if appconfig.Kafka.Brokers[0].Sasl != nil {
+			o.Consumer.AuthOptions.SASLMechanism = *appconfig.Kafka.Brokers[0].Sasl.SaslMechanism
+			o.Consumer.AuthOptions.SASLUsername = *appconfig.Kafka.Brokers[0].Sasl.Username
+			o.Consumer.AuthOptions.SASLPassword = *appconfig.Kafka.Brokers[0].Sasl.Password
+		}
+	}
+}

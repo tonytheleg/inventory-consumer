@@ -12,7 +12,7 @@ import (
 // Also should implement running the http server needed for capturing metrics
 
 const (
-	outboxTopic = "outbox.event.kessel.tuples"
+	outboxTopic = "hbi.replication.events"
 	// statsPrefix should be used for all consumer stat-based metrics
 	statsPrefix = "consumer_stats_"
 	// prefix should be used for all other consumer-related metrics
