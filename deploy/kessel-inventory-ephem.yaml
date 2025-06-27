@@ -1,7 +1,7 @@
 apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
-  name: inventory-resource-consumer
+  name: kessel-irc
 objects:
   - apiVersion: v1
     kind: ConfigMap
@@ -28,7 +28,7 @@ objects:
   - apiVersion: cloud.redhat.com/v1alpha1
     kind: ClowdApp
     metadata:
-      name: kessel-inventory-resource-consumer
+      name: kessel-irc
     spec:
       envName: ${ENV_NAME}
       kafkaTopics:
@@ -38,7 +38,7 @@ objects:
       optionalDependencies:
         - kessel-inventory
       deployments:
-        - name: irc
+        - name: service
           replicas: ${{REPLICAS}}
           podSpec:
             image: ${INVENTORY_IMAGE}:${IMAGE_TAG}
