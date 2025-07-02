@@ -1,0 +1,83 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: kessel-irc
+objects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: irc-config
+    data:
+      irc-config.yaml: |
+        consumer:
+          topics: 
+          - hbi.replication.events
+          - host-inventory.hbi.hosts
+          retry-options:
+            consumer-max-retries: 3
+            operation-max-retries: 4
+            backoff-factor: 5
+          auth:
+            enabled: false
+        client:
+          enabled: true
+          url: "kessel-inventory-api:9000"
+          enable-oidc-auth: false
+          insecure: true
+        log:
+          level: "info"
+
+  - apiVersion: cloud.redhat.com/v1alpha1
+    kind: ClowdApp
+    metadata:
+      name: kessel-irc
+    spec:
+      envName: ${ENV_NAME}
+      kafkaTopics:
+      - topicName: hbi.replication.events
+        partitions: 3
+        replicas: 3
+      - topicName: host-inventory.hbi.hosts
+        partitions: 3
+        replicas: 3
+      optionalDependencies:
+        - kessel-inventory
+        - kessel-relations
+      deployments:
+        - name: service
+          replicas: ${{REPLICAS}}
+          podSpec:
+            image: ${IRC_IMAGE}:${IMAGE_TAG}
+            imagePullPolicy: Always
+            command: ["inventory-consumer"]
+            args: ["start"]
+            env:
+            - name: CLOWDER_ENABLED
+              value: "true"
+            - name: INVENTORY_CONSUMER_CONFIG
+              value: "/inventory/irc-config.yaml"
+            volumeMounts:
+                - name: config-volume
+                  mountPath: "/inventory"
+            volumes:
+              - name: config-volume
+                configMap:
+                  name: irc-config
+          webServices:
+            public:
+              enabled: false
+
+parameters:
+  - description: ClowdEnvironment name (ephemeral, stage, prod)
+    name: ENV_NAME
+    required: true
+  - description: App Image
+    name: IRC_IMAGE
+    value: quay.io/anatale/inventory-resource-consumer
+  - description: Image Tag
+    name: IMAGE_TAG
+    required: true
+    value: latest
+  - description: Number of replicas
+    name: REPLICAS
+    value: "3"

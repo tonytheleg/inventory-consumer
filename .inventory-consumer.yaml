@@ -1,0 +1,18 @@
+consumer:
+  bootstrap-servers: localhost:9092
+  topics:
+  - hbi.replication.events
+  - host-inventory.hbi.hosts
+  retry-options:
+    consumer-max-retries: 3
+    operation-max-retries: 4
+    backoff-factor: 5
+  auth:
+    enabled: false
+client:
+  enabled: true
+  url: "localhost:9000"
+  enable-oidc-auth: false
+  insecure: true
+log:
+  level: "info"

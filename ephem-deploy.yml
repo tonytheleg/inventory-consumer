@@ -1,0 +1,58 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-consumer-config
+data:
+  config.yml: |
+    consumer:
+      bootstrap-servers: env-ephemeral-2bvioi-kafka-bootstrap:9092
+      topic: host-inventory.hbi.hosts
+      retry-options:
+        consumer-max-retries: 3
+        operation-max-retries: 4
+        backoff-factor: 5
+      auth:
+        enabled: false
+    client:
+      enabled: true
+      url: kessel-inventory-api:9000
+      enable-oidc-auth: false
+      insecure: true
+    log:
+      level: "debug"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: irc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: irc
+  template:
+    metadata:
+      labels:
+        app: irc
+    spec:
+      containers:
+        - command:
+            - inventory-consumer
+            - start
+            - --config
+            - /etc/inventory-consumer/config.yml
+          image: quay.io/tcreller/inventory-resource-consumer:f32ea8c
+          imagePullPolicy: Always
+          name: inventory-resource-consumer
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/inventory-consumer
+              readOnly: true
+      volumes:
+        - name: config-volume
+          configMap:
+            name: inventory-consumer-config
+            items:
+              - key: config.yml
+                path: config.yml
