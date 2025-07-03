@@ -1,6 +1,8 @@
-# PoC: Inventory Resource Consumer
+# Kessel Inventory Consumer
 
-### To Build: 
+The Kessel Inventory Consumer (KIC) is a standalone dedicated Kafka consumer group used to expose an eventing based entry point to the Kessel Inventory API. Its purpose is to subscribe to Service Provider owned Kafka topics and ensure reporter resource updates are replicated to Inventory API through events.
+
+### To Build:
 `make local-build`
 
 ### To Build Container Image:
@@ -21,7 +23,7 @@ make build-push-minimal
 
 ### To Run:
 
-Prerequisites: You need to have the basic kafka setup deployed in order to test. You can use the [split setup](https://github.com/project-kessel/inventory-api/blob/main/docs/dev-guides/docker-compose-options.md#local-kessel-inventory--docker-compose-infra-split-setup) target in Inventory API to setup the backend services
+Prerequisites: You need to have the basic kafka setup deployed in order to test. You can use any of the docker compose options ([standard](https://github.com/project-kessel/inventory-api/tree/main?tab=readme-ov-file#running-locally-using-docker-compose) or [more elaborate](https://github.com/project-kessel/inventory-api/blob/main/docs/dev-guides/docker-compose-options.md)) in Inventory API to setup the backend services, including Kafka
 
 **Using local binary**
 
@@ -49,8 +51,8 @@ oc apply -f https://gist.githubusercontent.com/akoserwal/a061a2959862caa653aa8c8
 # Kick the relations pod to load the new schema
 oc delete pod -l app=kessel-relations
 
-# Deploy IRC
-oc process --local -f deploy/kessel-irc-ephem.yaml -p ENV_NAME="YOUR-EPHEMEARL-ENV-NAME" -p IRC_IMAGE="YOUR-QUAY-IMAGE" -p IMAGE_TAG="YOUR-IMAGE-TAG" | oc apply -f-
+# Deploy KIC
+oc process --local -f deploy/kessel-inventory-consumer-ephem.yaml -p ENV_NAME="YOUR-EPHEMERAL-ENV-NAME" -p KIC_IMAGE="YOUR-QUAY-IMAGE" -p IMAGE_TAG="YOUR-IMAGE-TAG" | oc apply -f-
 
 # To test in Ephemeral you need to produce a message to the topic for the consumer to create the resource
 # You can test with my personal kcat image

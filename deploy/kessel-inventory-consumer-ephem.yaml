@@ -1,16 +1,16 @@
 apiVersion: template.openshift.io/v1
 kind: Template
 metadata:
-  name: kessel-irc
+  name: kessel-inventory-consumer
 objects:
   - apiVersion: v1
     kind: ConfigMap
     metadata:
-      name: irc-config
+      name: kic-config
     data:
-      irc-config.yaml: |
+      kic-config.yaml: |
         consumer:
-          topics: 
+          topics:
           - hbi.replication.events
           - host-inventory.hbi.hosts
           retry-options:
@@ -30,7 +30,7 @@ objects:
   - apiVersion: cloud.redhat.com/v1alpha1
     kind: ClowdApp
     metadata:
-      name: kessel-irc
+      name: kessel-inventory-consumer
     spec:
       envName: ${ENV_NAME}
       kafkaTopics:
@@ -47,7 +47,7 @@ objects:
         - name: service
           replicas: ${{REPLICAS}}
           podSpec:
-            image: ${IRC_IMAGE}:${IMAGE_TAG}
+            image: ${KIC_IMAGE}:${IMAGE_TAG}
             imagePullPolicy: Always
             command: ["inventory-consumer"]
             args: ["start"]
@@ -55,14 +55,14 @@ objects:
             - name: CLOWDER_ENABLED
               value: "true"
             - name: INVENTORY_CONSUMER_CONFIG
-              value: "/inventory/irc-config.yaml"
+              value: "/inventory/kic-config.yaml"
             volumeMounts:
                 - name: config-volume
                   mountPath: "/inventory"
             volumes:
               - name: config-volume
                 configMap:
-                  name: irc-config
+                  name: kic-config
           webServices:
             public:
               enabled: false
@@ -72,7 +72,7 @@ parameters:
     name: ENV_NAME
     required: true
   - description: App Image
-    name: IRC_IMAGE
+    name: KIC_IMAGE
     value: quay.io/anatale/inventory-resource-consumer
   - description: Image Tag
     name: IMAGE_TAG
