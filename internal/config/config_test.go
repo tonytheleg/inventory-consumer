@@ -1,26 +1,14 @@
 package config
 
 import (
-	"os"
 	"testing"
 
 	. "github.com/project-kessel/inventory-api/cmd/common"
+	"github.com/project-kessel/inventory-consumer/consumer"
+	"github.com/project-kessel/inventory-consumer/consumer/auth"
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/stretchr/testify/assert"
-	"github.com/tonytheleg/inventory-consumer/consumer"
-	"github.com/tonytheleg/inventory-consumer/consumer/auth"
 )
-
-var testCA = `-----BEGIN CERTIFICATE-----\nFAKE-CA\n-----END CERTIFICATE-----`
-
-func ParseCA(t *testing.T, path string) string {
-	file, err := os.ReadFile(path)
-	if err != nil {
-		t.Errorf("failed to read file %s: %s", path, err)
-		return ""
-	}
-	return string(file)
-}
 
 func TestConfigureConsumer(t *testing.T) {
 	tests := []struct {

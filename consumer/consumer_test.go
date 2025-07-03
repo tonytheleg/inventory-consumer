@@ -9,8 +9,8 @@ import (
 	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/tonytheleg/inventory-consumer/internal/mocks"
-	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
+	"github.com/project-kessel/inventory-consumer/internal/mocks"
+	metricscollector "github.com/project-kessel/inventory-consumer/metrics"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/go-kratos/kratos/v2/log"

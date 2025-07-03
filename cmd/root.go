@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/project-kessel/inventory-consumer/consumer"
+	"github.com/project-kessel/inventory-consumer/internal/common"
+	"github.com/project-kessel/inventory-consumer/internal/config"
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/tonytheleg/inventory-consumer/consumer"
-	"github.com/tonytheleg/inventory-consumer/internal/common"
-	"github.com/tonytheleg/inventory-consumer/internal/config"
 )
 
 var (

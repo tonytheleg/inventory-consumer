@@ -13,11 +13,11 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
 	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
-	"github.com/tonytheleg/inventory-consumer/consumer/auth"
-	"github.com/tonytheleg/inventory-consumer/consumer/retry"
-	"github.com/tonytheleg/inventory-consumer/consumer/transforms"
-	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
-	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
+	"github.com/project-kessel/inventory-consumer/consumer/auth"
+	"github.com/project-kessel/inventory-consumer/consumer/retry"
+	"github.com/project-kessel/inventory-consumer/consumer/transforms"
+	kessel "github.com/project-kessel/inventory-consumer/internal/client"
+	metricscollector "github.com/project-kessel/inventory-consumer/metrics"
 	"go.opentelemetry.io/otel/attribute"
 )
 

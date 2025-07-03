@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/tonytheleg/inventory-consumer/consumer/auth"
-	"github.com/tonytheleg/inventory-consumer/consumer/retry"
+	"github.com/project-kessel/inventory-consumer/consumer/auth"
+	"github.com/project-kessel/inventory-consumer/consumer/retry"
 )
 
 const clientID = "kic"

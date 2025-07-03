@@ -1,6 +1,6 @@
 package main
 
-import "github.com/tonytheleg/inventory-consumer/cmd"
+import "github.com/project-kessel/inventory-consumer/cmd"
 
 func main() {
 	cmd.Execute()

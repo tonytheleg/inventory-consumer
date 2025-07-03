@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
-	"github.com/tonytheleg/inventory-consumer/consumer/types"
+	"github.com/project-kessel/inventory-consumer/consumer/types"
 )
 
 // TransformDebeziumToReportResourceRequest transforms a Debezium message into a kesselv2.ReportResourceRequest

@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/project-kessel/inventory-consumer/consumer"
+	kessel "github.com/project-kessel/inventory-consumer/internal/client"
+	"github.com/project-kessel/inventory-consumer/internal/common"
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
-	"github.com/tonytheleg/inventory-consumer/consumer"
-	"github.com/tonytheleg/inventory-consumer/internal/client"
-	"github.com/tonytheleg/inventory-consumer/internal/common"
 )
 
 // OptionsConfig contains the settings for each configuration option

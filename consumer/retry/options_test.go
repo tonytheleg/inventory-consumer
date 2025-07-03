@@ -3,9 +3,9 @@ package retry
 import (
 	"testing"
 
+	"github.com/project-kessel/inventory-consumer/internal/common"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"github.com/tonytheleg/inventory-consumer/internal/common"
 )
 
 func TestNewOptions(t *testing.T) {

@@ -3,9 +3,9 @@ package consumer
 import (
 	"fmt"
 
+	"github.com/project-kessel/inventory-consumer/consumer/auth"
+	"github.com/project-kessel/inventory-consumer/consumer/retry"
 	"github.com/spf13/pflag"
-	"github.com/tonytheleg/inventory-consumer/consumer/auth"
-	"github.com/tonytheleg/inventory-consumer/consumer/retry"
 )
 
 type Options struct {

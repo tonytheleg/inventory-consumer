@@ -1,13 +1,13 @@
-module github.com/tonytheleg/inventory-consumer
+module github.com/project-kessel/inventory-consumer
 
 go 1.23.9
 
 require (
 	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
-	github.com/confluentinc/confluent-kafka-go/v2 v2.10.1
+	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/go-kratos/kratos/v2 v2.8.4
 	github.com/google/uuid v1.6.0
-	github.com/project-kessel/inventory-api v0.0.0-20250702174940-17d1afb9c914
+	github.com/project-kessel/inventory-api v0.0.0-20250703165500-01cd4fd220ad
 	github.com/project-kessel/inventory-client-go v0.0.0-20250703155410-0ece2b1f2d03
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redhatinsights/app-common-go v1.6.8

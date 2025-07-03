@@ -8,11 +8,11 @@ import (
 	"syscall"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/project-kessel/inventory-consumer/consumer"
+	kessel "github.com/project-kessel/inventory-consumer/internal/client"
+	"github.com/project-kessel/inventory-consumer/internal/common"
+	metricscollector "github.com/project-kessel/inventory-consumer/metrics"
 	"github.com/spf13/cobra"
-	"github.com/tonytheleg/inventory-consumer/consumer"
-	kessel "github.com/tonytheleg/inventory-consumer/internal/client"
-	"github.com/tonytheleg/inventory-consumer/internal/common"
-	metricscollector "github.com/tonytheleg/inventory-consumer/metrics"
 )
 
 func startCommand(consumerOptions *consumer.Options, clientOptions *kessel.Options, loggerOptions common.LoggerOptions) *cobra.Command {
