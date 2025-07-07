@@ -11,7 +11,7 @@ objects:
       kic-config.yaml: |
         consumer:
           topics:
-          - hbi.replication.events
+          - outbox.event.hbi.hosts
           - host-inventory.hbi.hosts
           retry-options:
             consumer-max-retries: 3
@@ -34,7 +34,7 @@ objects:
     spec:
       envName: ${ENV_NAME}
       kafkaTopics:
-      - topicName: hbi.replication.events
+      - topicName: outbox.event.hbi.hosts
         partitions: 3
         replicas: 3
       - topicName: host-inventory.hbi.hosts
