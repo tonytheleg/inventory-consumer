@@ -61,6 +61,48 @@ objects:
           - name: quay-cloudservices-pull
       version: ${VERSION}
 
+  - apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaConnector
+    metadata:
+      annotations:
+        strimzi.io/use-connector-resources: "true"
+      labels:
+        strimzi.io/cluster: kessel-kafka-connect
+      name: hbi-migration-connector
+    spec:
+      class: io.debezium.connector.postgresql.PostgresConnector
+      config:
+        database.dbname: ${secrets:host-inventory-db:db.name}
+        database.hostname: ${secrets:host-inventory-db:db.host}
+        database.password: ${secrets:host-inventory-db:db.password}
+        database.port: ${secrets:host-inventory-db:db.port}
+        database.server.name: host-inventory-db
+        database.user: ${secrets:host-inventory-db:db.user}
+        heartbeat.action.query: SELECT pg_logical_emit_message(false, 'heartbeat', now()::varchar);
+        heartbeat.interval.ms: "300000"
+        plugin.name: pgoutput
+        table.include.list: hbi.hosts
+        table.whitelist: hbi.hosts
+        topic.heartbeat.prefix: debezium-heartbeat
+        topic.prefix: host-inventory
+        transforms: unwrap,addMetadata,addHeaders,fieldFilter
+        transforms.addHeaders.header: operation
+        transforms.addHeaders.type: org.apache.kafka.connect.transforms.InsertHeader
+        transforms.addHeaders.value.literal: migration
+        transforms.addMetadata.static.field: source_system
+        transforms.addMetadata.static.value: host-inventory-db
+        transforms.addMetadata.type: org.apache.kafka.connect.transforms.InsertField$Value
+        transforms.fieldFilter.exclude: deletion_timestamp,facts,last_check_in,modified_on,per_reporter_staleness,stale_timestamp,stale_warning_timestamp,tags,tags_alt
+        transforms.fieldFilter.renames: display_name:hostname,org_id:organization_id
+        transforms.fieldFilter.type: org.apache.kafka.connect.transforms.ReplaceField$Value
+        transforms.timestampConverter.field: created_on
+        transforms.timestampConverter.target.type: unix
+        transforms.timestampConverter.type: org.apache.kafka.connect.transforms.TimestampConverter$Value
+        transforms.unwrap.delete.handling.mode: rewrite
+        transforms.unwrap.drop.tombstones: "false"
+        transforms.unwrap.type: io.debezium.transforms.ExtractNewRecordState
+      tasksMax: 1
+
   - apiVersion: cloud.redhat.com/v1alpha1
     kind: ClowdApp
     metadata:
