@@ -37,13 +37,13 @@ objects:
       bootstrapServers: ${ENV_NAME}-kafka-bootstrap:9092
       config:
         config.storage.replication.factor: ${CONFIG_STORAGE_REPLICATION_FACTOR}
-        config.storage.topic: connect-cluster-configs
+        config.storage.topic: kessel-kafka-connect-cluster-configs
         connector.client.config.override.policy: All
-        group.id: kessel-kafka_connect-cluster
+        group.id: kessel-kafka-connect-cluster
         offset.storage.replication.factor: ${OFFSET_STORAGE_REPLICATION_FACTOR}
-        offset.storage.topic: connect-cluster-offsets
+        offset.storage.topic: kessel-kafka-connect-cluster-offsets
         status.storage.replication.factor: ${STATUS_STORAGE_REPLICATION_FACTOR}
-        status.storage.topic: connect-cluster-status
+        status.storage.topic: kessel-kafka-connect-cluster-status
         config.providers: secrets
         config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
       image: ${KAFKA_CONNECT_IMAGE}
@@ -111,10 +111,10 @@ objects:
       envName: ${ENV_NAME}
       kafkaTopics:
       - topicName: outbox.event.hbi.hosts
-        partitions: 3
+        partitions: ${{PARTITIONS}}
         replicas: 3
       - topicName: host-inventory.hbi.hosts
-        partitions: 3
+        partitions: ${{PARTITIONS}}
         replicas: 3
       optionalDependencies:
         - kessel-inventory
@@ -156,7 +156,7 @@ parameters:
     value: latest
   - description: Number of replicas
     name: REPLICAS
-    value: "3"
+    value: "1"
   - name: CONFIG_STORAGE_REPLICATION_FACTOR
     description: Replication factor for the topic where connector configurations are stored
     value: "1"
@@ -176,3 +176,6 @@ parameters:
   - name: VERSION
     description: Kafka Connect version to use (should ideally match the Kafka cluster version)
     value: "3.9.0"
+  - name: PARTITIONS
+    description: Number of partitions to configure for a topic
+    value: "1"
