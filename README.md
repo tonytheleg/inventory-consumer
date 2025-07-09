@@ -39,20 +39,15 @@ podman run --network kessel -d quay.io/YOUR-IMAGE-HERE:TAG start --consumer.boot
 
 **Using Ephemeral**
 
-Note: requires you build an image and then push to your quay to deploy
-
 ```shell
-# Deploy Inventory/Relations first
-bonfire deploy kessel -C kessel-inventory
+# Deploy Kessel Services (this will also deploy relations and inventory api)
+bonfire deploy kessel -C kessel-inventory-consumer
 
 # Once its all running, update the spicedb schema for one that supports HBI
 oc apply -f https://gist.githubusercontent.com/akoserwal/a061a2959862caa653aa8c8836db874b/raw/7cd73fd045ed8f30c850349bb7ff3264b2d35c8e/spicedb-schema-configmap.yaml
 
 # Kick the relations pod to load the new schema
 oc delete pod -l app=kessel-relations
-
-# Deploy KIC
-oc process --local -f deploy/kessel-inventory-consumer-ephem.yaml -p ENV_NAME="YOUR-EPHEMERAL-ENV-NAME" -p KIC_IMAGE="YOUR-QUAY-IMAGE" -p IMAGE_TAG="YOUR-IMAGE-TAG" | oc apply -f-
 
 # To test in Ephemeral you need to produce a message to the topic for the consumer to create the resource
 # You can test with my personal kcat image
@@ -65,3 +60,39 @@ echo '{"schema":{"type":"string","optional":false},"payload":"dd1b73b9-3e33-4264
 # Delete the same HBI Host
 echo '{"schema":{"type":"string","optional":false},"payload":"dd1b73b9-3e33-4264-968c-e3ce55b9afec"}|{"schema":{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"resource_type"},{"type":"string","optional":true,"field":"resource_id"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"}],"optional":true,"name":"reporter"}],"optional":true,"name":"reference"}],"optional":true,"name":"payload"},"payload":{"reference":{"resource_type":"host","resource_id":"dd1b73b9-3e33-4264-968c-e3ce55b9afec","reporter":{"type":"hbi"}}}}' | kcat -P -b $BOOTSTRAP_SERVERS -H "operation=deleted" -t hbi.replication.events -K "|"
 ```
+
+### Monitoring
+
+Prometheus metrics can be captured from both the Kessel Inventory Consumer, and if deployed, the Kessel Kafka Connect pod
+
+KIC metrics are available on port 9000:
+
+```shell
+# Run local binary/container or `oc port-forward svc/kessel-inventory-consumer-service 9000:9000`
+curl localhost:9000/metrics
+```
+
+Kafka Connect metrics are available on port 9404:
+```shell
+oc port-forward kessel-kafka-connect-connect-0 9404:9404
+curl localhost:9404/metrics
+```
+
+### Monitoring in Ephemeral using Podman Compose
+
+The monitoring stack available in [Kessel Inventory](https://github.com/project-kessel/inventory-api/blob/main/docs/dev-guides/docker-compose-options.md#monitoring-stack-only) can be used to monitor replication-related workloads in Ephemeral for performance testing.
+
+The process consists of:
+1. Starting the monitoring stack using podman (see above link)
+2. Port forward each of the services locally
+
+```shell
+# Note: the address 0.0.0.0 is used to ensure the podman containers can use the special host.containers.internal address to access the host
+oc port-forward --address 0.0.0.0 svc/kessel-inventory-api 8000:8000 &
+oc port-forward --address 0.0.0.0 svc/kessel-inventory-consumer-service 9000:9000 &
+oc port-forward --address 0.0.0.0 kessel-kafka-connect-connect-0 9404:9404 &
+```
+
+3. Access Prometheus in your browser at `localhost:9050`
+
+Metrics will then be scraped from the running pods in ephemeral through your port-forwarding connection!
