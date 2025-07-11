@@ -313,7 +313,7 @@ parameters:
     description: Replication factor for the topic where connector and task status are stored
     value: "1"
   - name: KAFKA_CONNECT_IMAGE
-    value: "quay.io/anatale/kessel-kafka-connect:latest"
+    value: "https://quay.io/redhat-services-prod/project-kessel-tenant/kessel-kafka-connect:latest"
     description: Container image name for the connect cluster pods
     required: true
   - name: CONNECT_REPLICAS
