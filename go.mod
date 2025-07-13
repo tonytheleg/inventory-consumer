@@ -7,7 +7,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/go-kratos/kratos/v2 v2.8.4
 	github.com/google/uuid v1.6.0
-	github.com/project-kessel/inventory-api v0.0.0-20250703165500-01cd4fd220ad
+	github.com/project-kessel/inventory-api v0.0.0-20250710201403-d86651dd4f6a
 	github.com/project-kessel/inventory-client-go v0.0.0-20250703155410-0ece2b1f2d03
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redhatinsights/app-common-go v1.6.8
