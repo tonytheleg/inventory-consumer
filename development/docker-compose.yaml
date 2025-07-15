@@ -1,0 +1,81 @@
+services:
+  full-setup:
+    image: bash:3.1-alpine3.21
+    command: ["echo", "starting full-setup"]
+    depends_on:
+    - inventory-consumer
+    - hbidatabase
+    - kafka-setup
+    - kic-connect
+    networks:
+      - kessel
+    restart: on-failure
+
+### Individual services
+  inventory-consumer:
+    environment:
+      INVENTORY_CONSUMER_CONFIG: /inventory-consumer-config.yaml
+    build:
+      context: ../
+      dockerfile: Dockerfile
+      args:
+        VERSION: dev
+    volumes:
+      - ./configs/${CONFIG}.yaml:/inventory-consumer-config.yaml:ro,z
+    command: ["start"]
+    restart: "always"
+    networks:
+      - kessel
+
+  hbidatabase:
+    image: "postgres"
+    command: ["docker-entrypoint.sh", "-p", "5432", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    hostname: hbidatabase
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./configs/postgresql.conf:/etc/postgresql/postgresql.conf:ro,z
+    environment:
+      - "POSTGRES_PASSWORD=supersecurewow"
+      - "POSTGRES_DB=host-inventory"
+      - "PGPORT=5432"
+    networks:
+      - kessel
+
+  kafka-setup:
+    image: quay.io/strimzi/kafka:latest-kafka-3.8.0
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      echo -e 'Creating kafka topics'
+      bin/kafka-topics.sh --bootstrap-server kafka:9093 --create --if-not-exists --topic host-inventory.hbi.hosts --replication-factor 1 --partitions 1
+      bin/kafka-topics.sh --bootstrap-server kafka:9093 --create --if-not-exists --topic outbox.event.hbi.hosts --replication-factor 1 --partitions 1
+      "
+    networks:
+      - kessel
+
+  kic-connect:
+    ports:
+      - 8084:8083
+    environment:
+      - GROUP_ID=2
+      - CONFIG_STORAGE_TOPIC=kessel_kafka_connect_configs
+      - OFFSET_STORAGE_TOPIC=kessel_kafka_connect_offsets
+      - STATUS_STORAGE_TOPIC=kessel_kafka_connect_statuses
+      - BOOTSTRAP_SERVERS=kafka:9093
+    depends_on:
+      - kafka-setup
+    image: quay.io/debezium/connect:2.5
+    restart: "always"
+    networks:
+      - kessel
+
+volumes:
+  grafana-storage: {}
+
+networks:
+  kessel:
+    name: kessel
+    external: true

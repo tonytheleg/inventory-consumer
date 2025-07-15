@@ -25,7 +25,7 @@ make build-push-minimal
 
 Prerequisites: You need to have the basic kafka setup deployed in order to test. You can use any of the docker compose options ([standard](https://github.com/project-kessel/inventory-api/tree/main?tab=readme-ov-file#running-locally-using-docker-compose) or [more elaborate](https://github.com/project-kessel/inventory-api/blob/main/docs/dev-guides/docker-compose-options.md)) in Inventory API to setup the backend services, including Kafka
 
-**Using local binary**
+#### Using local binary
 
 ```shell
 make build
@@ -37,7 +37,24 @@ make build
 podman run --network kessel -d quay.io/YOUR-IMAGE-HERE:TAG start --consumer.bootstrap-servers kafka:9093
 ```
 
-**Using Ephemeral**
+#### Using Podman Compose
+
+>!NOTE
+>The podman compose setup is meant to replicate an ephemeral-like environment locally and requires Inventory API and Relations API to be running by default. You will need both repos cloned down in order to set everything up.
+
+In the root of your cloned Inventory API repo: `make inventory-up-relations-ready`
+
+In the root of your cloned Relations API reo: `make relations-api-up`
+
+Then:
+
+```shell
+# Deploy KIC and related dependencies
+# This will include a test HBI database for now, Kafka Connect cluster and topic creation
+make inventory-consumer-up
+```
+
+#### Using Ephemeral
 
 ```shell
 # Deploy Kessel Services (this will also deploy relations and inventory api)

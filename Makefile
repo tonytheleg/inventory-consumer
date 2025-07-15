@@ -53,3 +53,19 @@ docker-build-push:
 .PHONY: build-push-minimal
 build-push-minimal:
 	./build_push_minimal.sh
+
+.PHONY: inventory-consumer-up
+inventory-consumer-up:
+	./scripts/start-inventory-consumer.sh full-setup
+
+.PHONY: inventory-consumer-down
+inventory-consumer-down:
+	./scripts/stop-inventory-consumer.sh
+
+.PHONY: setup-hbi-db
+setup-hbi-db:
+	PGPASSWORD=supersecurewow psql -h localhost -p 5432 -U postgres -d host-inventory -f development/configs/hbi-full-setup.sql
+
+.PHONY: setup-migration-connector
+setup-migration-connector:
+	curl -d @development/configs/debezium-connector.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors

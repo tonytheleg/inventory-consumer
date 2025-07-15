@@ -1,0 +1,18 @@
+consumer:
+  bootstrap-servers: ["kafka:9093"]
+  topics:
+  - outbox.event.hbi.hosts
+  - host-inventory.hbi.hosts
+  retry-options:
+    consumer-max-retries: 3
+    operation-max-retries: 4
+    backoff-factor: 5
+  auth:
+    enabled: false
+client:
+  enabled: true
+  url: "inventory-api:9081"
+  enable-oidc-auth: false
+  insecure: true
+log:
+  level: "info"
