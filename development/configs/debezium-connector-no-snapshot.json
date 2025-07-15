@@ -1,0 +1,35 @@
+{
+  "name": "hbi-migration-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "slot.name": "debezium_hosts",
+    "signal.enabled.channels": "source,kafka",
+    "signal.kafka.topic": "host-inventory.signal",
+    "signal.kafka.bootstrap.servers": "kafka:9093",
+    "signal.data.collection": "hbi.signal",
+    "snapshot.mode": "no_data",
+    "database.server.name": "host-inventory-db",
+    "database.dbname": "host-inventory",
+    "database.hostname": "hbidatabase",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "supersecurewow",
+    "topic.prefix": "host-inventory",
+    "table.include.list": "hbi.hosts",
+    "plugin.name": "pgoutput",
+    "transforms": "unwrap,addMetadata,addHeaders,fieldFilter",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.addMetadata.type": "org.apache.kafka.connect.transforms.InsertField$Value",
+    "transforms.addMetadata.static.field": "source_system",
+    "transforms.addMetadata.static.value": "host-inventory-db",
+    "transforms.addHeaders.type": "org.apache.kafka.connect.transforms.InsertHeader",
+    "transforms.addHeaders.header": "operation",
+    "transforms.addHeaders.value.literal": "migration",
+    "transforms.fieldFilter.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+    "transforms.fieldFilter.exclude": "deletion_timestamp,facts,last_check_in,modified_on,per_reporter_staleness,stale_timestamp,stale_warning_timestamp,tags,tags_alt",
+    "transforms.fieldFilter.renames": "display_name:hostname,org_id:organization_id"
+  }
+}
+

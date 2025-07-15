@@ -52,6 +52,7 @@ services:
       echo -e 'Creating kafka topics'
       bin/kafka-topics.sh --bootstrap-server kafka:9093 --create --if-not-exists --topic host-inventory.hbi.hosts --replication-factor 1 --partitions 1
       bin/kafka-topics.sh --bootstrap-server kafka:9093 --create --if-not-exists --topic outbox.event.hbi.hosts --replication-factor 1 --partitions 1
+      bin/kafka-topics.sh --bootstrap-server kafka:9093 --create --if-not-exists --topic host-inventory.signal --replication-factor 1 --partitions 1
       "
     networks:
       - kessel
@@ -67,7 +68,7 @@ services:
       - BOOTSTRAP_SERVERS=kafka:9093
     depends_on:
       - kafka-setup
-    image: quay.io/debezium/connect:2.5
+    image: quay.io/debezium/connect:2.7
     restart: "always"
     networks:
       - kessel

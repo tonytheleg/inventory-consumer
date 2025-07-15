@@ -69,3 +69,7 @@ setup-hbi-db:
 .PHONY: setup-migration-connector
 setup-migration-connector:
 	curl -d @development/configs/debezium-connector.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors
+
+.PHONY: setup-migration-connector-no-snapshot
+setup-migration-connector-no-snapshot:
+	curl -d @development/configs/debezium-connector-no-snapshot.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors

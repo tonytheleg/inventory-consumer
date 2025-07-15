@@ -1283,6 +1283,7 @@ ALTER PUBLICATION hbi_hosts_pub_v1_0_1 OWNER TO "VBzEIpnveJmm3TXi";
 
 ALTER PUBLICATION hbi_hosts_pub_v1_0_1 ADD TABLE ONLY hbi.hosts (id, account, display_name, created_on, modified_on, facts, canonical_facts, system_profile_facts, ansible_host, stale_timestamp, reporter, per_reporter_staleness, org_id, groups, tags_alt, last_check_in, stale_warning_timestamp, deletion_timestamp);
 
+CREATE TABLE hbi.signal (id VARCHAR(255) PRIMARY KEY, type VARCHAR(255) NOT NULL, data VARCHAR(255) NULL);
 
 --
 -- PostgreSQL database dump complete
