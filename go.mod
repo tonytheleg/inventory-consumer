@@ -1,6 +1,6 @@
 module github.com/project-kessel/inventory-consumer
 
-go 1.23.9
+go 1.24.4
 
 require (
 	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
