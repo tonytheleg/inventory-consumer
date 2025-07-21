@@ -81,3 +81,6 @@ parameters:
   - description: Number of replicas
     name: REPLICAS
     value: "1"
+  - name: PARTITIONS
+    description: Number of partitions to configure for a topic
+    value: "1"
