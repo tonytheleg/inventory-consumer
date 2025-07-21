@@ -29,7 +29,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 		prefix = prefix + "."
 	}
 	fs.BoolVar(&o.Enabled, prefix+"enabled", o.Enabled, "enable the kessel inventory grpc client")
-	fs.StringVar(&o.InventoryURL, prefix+"url", o.InventoryURL, "gRPC endpoint of the kessel inventory service.")
+	fs.StringVar(&o.InventoryURL, prefix+"url", o.InventoryURL, "HTTP endpoint of the kessel inventory service.")
 	fs.StringVar(&o.ClientId, prefix+"sa-client-id", o.ClientId, "service account client id")
 	fs.StringVar(&o.ClientSecret, prefix+"sa-client-secret", o.ClientSecret, "service account secret")
 	fs.StringVar(&o.TokenEndpoint, prefix+"sso-token-endpoint", o.TokenEndpoint, "sso token endpoint for authentication")

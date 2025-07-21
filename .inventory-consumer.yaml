@@ -1,7 +1,7 @@
 consumer:
   bootstrap-servers: localhost:9092
   topics:
-  - hbi.replication.events
+  - outbox.event.hbi.hosts
   - host-inventory.hbi.hosts
   retry-options:
     consumer-max-retries: 3
@@ -11,7 +11,7 @@ consumer:
     enabled: false
 client:
   enabled: true
-  url: "localhost:9000"
+  url: "localhost:8081"
   enable-oidc-auth: false
   insecure: true
 log:
