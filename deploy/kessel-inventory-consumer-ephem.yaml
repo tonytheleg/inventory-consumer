@@ -21,7 +21,7 @@ objects:
             enabled: false
         client:
           enabled: true
-          url: "kessel-inventory-api:8000"
+          url: "kessel-inventory-api:9000"
           enable-oidc-auth: false
           insecure: true
         log:
