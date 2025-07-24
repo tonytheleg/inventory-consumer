@@ -1,5 +1,10 @@
 package types
 
+const (
+	HostResourceType = "host"
+	HostReporterType = "hbi"
+)
+
 // HostMessage represents the structure of a Host Debezium change event
 type HostMessage struct {
 	Schema  map[string]interface{} `json:"schema"`
@@ -18,7 +23,6 @@ type HostPayload struct {
 	AnsibleHost    string `json:"ansible_host"`
 	Reporter       string `json:"reporter"`
 	OrganizationID string `json:"organization_id"`
-	Deleted        string `json:"__deleted"`
 }
 
 type CanonicalFacts struct {

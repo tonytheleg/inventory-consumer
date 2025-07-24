@@ -249,21 +249,47 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
-		req, err := transforms.TransformHostToReportResourceRequest(msg.Value)
-		if err != nil {
-			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "TransformHostToReportResourceRequest", err)
-			i.Logger.Errorf("failed to parse message for host: %v", err)
-			return err
-		}
-
 		if i.Client.IsEnabled() {
-			resp, err := i.Retry(func() (interface{}, error) {
-				return i.Client.CreateOrUpdateResource(req)
-			})
+			var resp interface{}
+			var operationErr error
+
+			// Check if this is a delete message
+			isDeleted, err := transforms.IsHostDeleted(msg.Value)
 			if err != nil {
-				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
-				i.Logger.Errorf("failed to create resource: %v", err)
+				i.Logger.Errorf("failed to check if host is deleted: %v", err)
 				return err
+			}
+
+			if isDeleted {
+				// Transform and process delete request
+				deleteReq, err := transforms.TransformHostToDeleteResourceRequest(msg.Value, msg.Key)
+				if err != nil {
+					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "TransformHostToDeleteResourceRequest", err)
+					i.Logger.Errorf("failed to parse message for host deletion: %v", err)
+					return err
+				}
+
+				resp, operationErr = i.Retry(func() (interface{}, error) {
+					return i.Client.DeleteResource(deleteReq)
+				})
+			} else {
+				// Transform and process report resource request
+				reportReq, err := transforms.TransformHostToReportResourceRequest(msg.Value)
+				if err != nil {
+					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "TransformHostToReportResourceRequest", err)
+					i.Logger.Errorf("failed to parse message for host: %v", err)
+					return err
+				}
+
+				resp, operationErr = i.Retry(func() (interface{}, error) {
+					return i.Client.CreateOrUpdateResource(reportReq)
+				})
+			}
+
+			if operationErr != nil {
+				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ProcessMigrationResource", operationErr)
+				i.Logger.Errorf("failed to process migration resource: %v", operationErr)
+				return operationErr
 			}
 			i.Logger.Infof("response: %+v", resp)
 		}
