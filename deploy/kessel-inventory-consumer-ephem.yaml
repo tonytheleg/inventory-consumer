@@ -63,9 +63,17 @@ objects:
               - name: config-volume
                 configMap:
                   name: kic-config
+            readinessProbe:
+              exec:
+                command: ["inventory-consumer", "readyz"]
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 3
           webServices:
             public:
               enabled: false
+
 
 parameters:
   - description: ClowdEnvironment name (ephemeral, stage, prod)

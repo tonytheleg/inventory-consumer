@@ -85,6 +85,13 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+
+	readyzCmd := readyzCommand(options.Client)
+	rootCmd.AddCommand(readyzCmd)
+	err = viper.BindPFlags(readyzCmd.Flags())
+	if err != nil {
+		panic(err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.

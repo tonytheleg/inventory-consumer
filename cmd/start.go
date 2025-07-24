@@ -58,7 +58,7 @@ subscribed to the provided topic`,
 			quit := make(chan os.Signal, 1)
 			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-			log.Info("starting metrics server on port :8088")
+			log.Info("starting metrics server on port :9000")
 			go metricscollector.ServeMetrics()
 
 			srvErrs := make(chan error)
