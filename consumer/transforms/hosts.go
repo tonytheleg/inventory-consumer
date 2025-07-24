@@ -3,13 +3,14 @@ package transforms
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/project-kessel/inventory-consumer/consumer/types"
 )
 
-// TransformDebeziumToReportResourceRequest transforms a Debezium message into a kesselv2.ReportResourceRequest
+// TransformHostToReportResourceRequest transforms a Debezium message into a kesselv2.ReportResourceRequest
 func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceRequest, error) {
 	var hostMsg types.HostMessage
 	err := json.Unmarshal(msg, &hostMsg)
@@ -29,8 +30,8 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 	// Create a simplified structure that matches the expected format
 	// First convert to the intermediate JSON structure
 	intermediatePayload := map[string]interface{}{
-		"type":                 "host",
-		"reporter_type":        "hbi",
+		"type":                 types.HostResourceType,
+		"reporter_type":        types.HostReporterType,
 		"reporter_instance_id": hostMsg.Payload.ID,
 		"representations": map[string]interface{}{
 			"metadata": map[string]interface{}{
@@ -69,4 +70,51 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 	}
 
 	return &request, nil
+}
+
+// TransformHostToDeleteResourceRequest transforms a tombstone message into a kesselv2.DeleteResourceRequest
+// Extracts the resource ID from the message key since tombstones have empty values
+func TransformHostToDeleteResourceRequest(msgValue []byte, msgKey []byte) (*kesselv2.DeleteResourceRequest, error) {
+	// Extract ID from the key
+	if len(msgKey) == 0 {
+		return nil, fmt.Errorf("tombstone message has no key to extract resource ID")
+	}
+
+	var keyPayload struct {
+		Payload struct {
+			ID string `json:"id"`
+		} `json:"payload"`
+	}
+
+	err := json.Unmarshal(msgKey, &keyPayload)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling message key for tombstone: %v", err)
+	}
+
+	resourceID := keyPayload.Payload.ID
+	if resourceID == "" {
+		return nil, fmt.Errorf("cannot extract resource ID from tombstone message key")
+	}
+
+	return &kesselv2.DeleteResourceRequest{
+		Reference: &kesselv2.ResourceReference{
+			ResourceType: types.HostResourceType,
+			ResourceId:   resourceID,
+			Reporter: &kesselv2.ReporterReference{
+				Type: types.HostReporterType,
+			},
+		},
+	}, nil
+}
+
+// IsHostDeleted checks if a Debezium message is a tombstone event (indicating deletion)
+func IsHostDeleted(msgValue []byte) (bool, error) {
+	// Tombstone events have empty/null values
+	return len(msgValue) == 0 || isEmptyJSON(msgValue), nil
+}
+
+// isEmptyJSON checks if the byte slice represents empty JSON (null, whitespace only, etc.)
+func isEmptyJSON(data []byte) bool {
+	trimmed := strings.TrimSpace(string(data))
+	return trimmed == "" || trimmed == "null"
 }
