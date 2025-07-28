@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/project-kessel/inventory-consumer/consumer/types"
 )
@@ -18,38 +17,27 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 		return nil, fmt.Errorf("error unmarshaling Debezium message: %v", err)
 	}
 
-	// Parse canonical_facts JSON field
-	var canonicalFacts types.CanonicalFacts
-	if hostMsg.Payload.CanonicalFacts != "" {
-		err := json.Unmarshal([]byte(hostMsg.Payload.CanonicalFacts), &canonicalFacts)
-		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling canonical_facts: %v", err)
-		}
-	}
-
 	// Create a simplified structure that matches the expected format
 	// First convert to the intermediate JSON structure
 	intermediatePayload := map[string]interface{}{
 		"type":                 types.HostResourceType,
 		"reporter_type":        types.HostReporterType,
-		"reporter_instance_id": hostMsg.Payload.ID,
+		"reporter_instance_id": types.HostReporterInstanceID,
 		"representations": map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"local_resource_id": hostMsg.Payload.ID,
-				"api_href":          "https://apiHref.com/",
-				"console_href":      "https://www.console.com/",
-				"reporter_version":  "1.0",
+				"api_href":          types.HostAPIHref,
+				"console_href":      types.HostConsoleHref,
+				"reporter_version":  types.HostReporterVersion,
 			},
 			"common": map[string]interface{}{
-				"workspace_id": hostMsg.Payload.OrganizationID,
+				"workspace_id": hostMsg.Payload.Groups[0].ID,
 			},
 			"reporter": map[string]interface{}{
-				"satellite_id":   uuid.New().String(), // TODO: hook this up to the satellite id
-				"sub_manager_id": uuid.New().String(), // TODO: hook this up to the sub manager id
-				// "sub_manager_id":        canonicalFacts.SubscriptionManagerID,
-				"insights_inventory_id": uuid.New().String(), // TODO: hook this up to the insights inventory id
-				// "insights_inventory_id": hostMsg.Payload.ID,
-				"ansible_host": hostMsg.Payload.AnsibleHost,
+				"satellite_id":          hostMsg.Payload.SatelliteID,
+				"sub_manager_id":        hostMsg.Payload.SubscriptionManagerID,
+				"insights_inventory_id": hostMsg.Payload.InsightsID,
+				"ansible_host":          hostMsg.Payload.AnsibleHost,
 			},
 			"common_resource_data": map[string]interface{}{
 				"workspace_id": hostMsg.Payload.OrganizationID,
