@@ -1,0 +1,73 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: kessel-inventory-consumer
+objects:
+  - apiVersion: cloud.redhat.com/v1alpha1
+    kind: ClowdApp
+    metadata:
+      name: kessel-inventory-consumer
+    spec:
+      envName: ${ENV_NAME}
+      # uncomment once topics have been created
+      # kafkaTopics:
+      # - topicName: outbox.event.hbi.hosts
+      # - topicName: host-inventory.hbi.hosts
+      optionalDependencies:
+        - kessel-inventory
+        - kessel-relations
+      deployments:
+        - name: service
+          replicas: ${{REPLICAS}}
+          podSpec:
+            image: ${KIC_IMAGE}:${IMAGE_TAG}
+            imagePullPolicy: Always
+            command: ["inventory-consumer"]
+            args: ["start"]
+            env:
+            - name: CLOWDER_ENABLED
+              value: "true"
+            - name: INVENTORY_CONSUMER_CONFIG
+              value: "/inventory/kic-config.yaml"
+            volumeMounts:
+                - name: config-volume
+                  mountPath: "/inventory"
+            volumes:
+              - name: config-volume
+                secret:
+                  secretName: kessel-inventory-consumer-config
+            readinessProbe:
+              exec:
+                command: ["inventory-consumer", "readyz"]
+              initialDelaySeconds: 15
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 3
+          webServices:
+            public:
+              enabled: false
+
+  - kind: PodDisruptionBudget
+    apiVersion: policy/v1
+    metadata:
+      name: kessel-inventory-consumer-pdb
+    spec:
+      minAvailable: 1
+      selector:
+        matchLabels:
+          app: kessel-inventory-consumer
+
+parameters:
+  - description: ClowdEnvironment name (ephemeral, stage, prod)
+    name: ENV_NAME
+    required: true
+  - description: App Image
+    name: KIC_IMAGE
+    value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-inventory-consumer/inventory-consumer
+  - description: Image Tag
+    name: IMAGE_TAG
+    required: true
+    value: latest
+  - description: Number of replicas
+    name: REPLICAS
+    value: "3"
