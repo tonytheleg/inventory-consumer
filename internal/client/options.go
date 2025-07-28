@@ -40,7 +40,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 func (o *Options) Validate() []error {
 	var errs []error
 
-	if len(o.InventoryURL) == 0 {
+	if len(o.InventoryURL) == 0 && o.Enabled {
 		errs = append(errs, fmt.Errorf("kessel url may not be empty"))
 	}
 

@@ -20,7 +20,7 @@ var (
 	cfgFile string
 
 	logger *log.Helper
-	icrg   consumer.InventoryConsumer
+	kic    consumer.InventoryConsumer
 	err    error
 	errs   []error
 

@@ -9,6 +9,7 @@ import (
 )
 
 type Options struct {
+	Enabled            bool           `mapstructure:"enabled"`
 	BootstrapServers   []string       `mapstructure:"bootstrap-servers"`
 	ConsumerGroupID    string         `mapstructure:"consumer-group-id"`
 	Topics             []string       `mapstructure:"topics"`
@@ -25,6 +26,7 @@ type Options struct {
 
 func NewOptions() *Options {
 	return &Options{
+		Enabled:            true,
 		ConsumerGroupID:    "kic",
 		SessionTimeout:     "45000",
 		HeartbeatInterval:  "3000",
@@ -42,6 +44,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 	if prefix != "" {
 		prefix = prefix + "."
 	}
+	fs.BoolVar(&o.Enabled, prefix+"enabled", o.Enabled, "enables/disables consumer (default: true)")
 	fs.StringSliceVar(&o.BootstrapServers, prefix+"bootstrap-servers", o.BootstrapServers, "sets the bootstrap server address and port for Kafka")
 	fs.StringVar(&o.ConsumerGroupID, prefix+"consumer-group-id", o.ConsumerGroupID, "sets the Kafka consumer group name (default: inventory-consumer)")
 	fs.StringArrayVar(&o.Topics, prefix+"topics", o.Topics, "Kafka topic to monitor for events")
@@ -60,11 +63,11 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 func (o *Options) Validate() []error {
 	var errs []error
 
-	if len(o.BootstrapServers) == 0 {
+	if len(o.BootstrapServers) == 0 && o.Enabled {
 		errs = append(errs, fmt.Errorf("bootstrap servers can not be empty"))
 	}
 
-	if len(o.Topics) == 0 {
+	if len(o.Topics) == 0 && o.Enabled {
 		errs = append(errs, fmt.Errorf("topic value can not be empty"))
 	}
 	return errs

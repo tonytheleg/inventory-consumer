@@ -1,8 +1,8 @@
 consumer:
+  enabled: true
   bootstrap-servers: localhost:9092
   topics:
-  - hbi.replication.events
-  - host-inventory.hbi.hosts
+  - outbox.event.hbi.hosts
   retry-options:
     consumer-max-retries: 3
     operation-max-retries: 4

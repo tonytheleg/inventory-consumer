@@ -62,14 +62,18 @@ subscribed to the provided topic`,
 			go metricscollector.ServeMetrics()
 
 			srvErrs := make(chan error)
-			go func() {
-				srvErrs <- icrg.Run(consumerOptions, consumerConfig, client, logHelper)
-			}()
+			if consumerConfig.Enabled {
+				go func() {
+					srvErrs <- kic.Run(consumerOptions, consumerConfig, client, logHelper)
+				}()
+			} else {
+				log.Info("Consumer disabled -- running in Standby mode")
+			}
 			select {
 			case <-quit:
-				shutdown(&icrg, logHelper, fmt.Errorf("received signal \"quit\", shutting down"))
+				shutdown(&kic, logHelper, fmt.Errorf("received signal \"quit\", shutting down"))
 			case err := <-srvErrs:
-				shutdown(&icrg, logHelper, err)
+				shutdown(&kic, logHelper, err)
 			}
 			return nil
 

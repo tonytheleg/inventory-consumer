@@ -17,6 +17,7 @@ func TestNewOptions(t *testing.T) {
 	}{
 		options: NewOptions(),
 		expectedOptions: &Options{
+			Enabled:            true,
 			ConsumerGroupID:    "kic",
 			SessionTimeout:     "45000",
 			HeartbeatInterval:  "3000",
@@ -67,6 +68,7 @@ func TestOptions_Validate(t *testing.T) {
 		{
 			name: "bootstrap servers is empty and topic is set",
 			options: &Options{
+				Enabled:          true,
 				BootstrapServers: []string{},
 				Topics:           []string{"test-topic"},
 			},
@@ -75,6 +77,7 @@ func TestOptions_Validate(t *testing.T) {
 		{
 			name: "bootstrap servers is empty and topic is empty",
 			options: &Options{
+				Enabled:          true,
 				BootstrapServers: []string{},
 				Topics:           []string{},
 			},
@@ -83,12 +86,22 @@ func TestOptions_Validate(t *testing.T) {
 		{
 			name: "bootstrap servers is set and topic is empty",
 			options: &Options{
+				Enabled: true,
 				BootstrapServers: []string{
 					"test-server:9092",
 				},
 				Topics: []string{},
 			},
 			expectError: true,
+		},
+		{
+			name: "bootstrap servers and/or topic can be empty if consumer disabled",
+			options: &Options{
+				Enabled:          false,
+				BootstrapServers: []string{},
+				Topics:           []string{},
+			},
+			expectError: false,
 		},
 	}
 
