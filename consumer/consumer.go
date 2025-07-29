@@ -19,6 +19,8 @@ import (
 	kessel "github.com/project-kessel/inventory-consumer/internal/client"
 	metricscollector "github.com/project-kessel/inventory-consumer/metrics"
 	"go.opentelemetry.io/otel/attribute"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -253,6 +255,16 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 			var resp interface{}
 			var operationErr error
 
+			// Migration error handler for "resource not found" errors
+			deleteErrorHandler := func(err error) bool {
+				if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "MigrationResourceNotFound", err)
+					i.Logger.Warnf("resource not found during migration delete, dropping message: %v", err)
+					return true // Short-circuit retry loop
+				}
+				return false // Continue with normal retry behavior
+			}
+
 			// Check if this is a delete message
 			isDeleted, err := transforms.IsHostDeleted(msg.Value)
 			if err != nil {
@@ -271,7 +283,7 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 
 				resp, operationErr = i.Retry(func() (interface{}, error) {
 					return i.Client.DeleteResource(deleteReq)
-				})
+				}, deleteErrorHandler)
 			} else {
 				// Transform and process report resource request
 				reportReq, err := transforms.TransformHostToReportResourceRequest(msg.Value)
@@ -400,7 +412,8 @@ func (i *InventoryConsumer) Shutdown() error {
 }
 
 // Retry executes the given function and will retry on failure with backoff until max retries is reached
-func (i *InventoryConsumer) Retry(operation func() (interface{}, error)) (interface{}, error) {
+// If errorHandler returns true, the retry loop is short-circuited and the original error is returned
+func (i *InventoryConsumer) Retry(operation func() (interface{}, error), errorHandler ...func(error) bool) (interface{}, error) {
 	attempts := 0
 	var resp interface{}
 	var err error
@@ -408,6 +421,11 @@ func (i *InventoryConsumer) Retry(operation func() (interface{}, error)) (interf
 	for i.RetryOptions.OperationMaxRetries == -1 || attempts < i.RetryOptions.OperationMaxRetries {
 		resp, err = operation()
 		if err != nil {
+			// Check if we have a custom error handler and if it wants to short-circuit
+			if len(errorHandler) > 0 && errorHandler[0](err) {
+				return nil, nil // Return nil error to drop the message
+			}
+
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "Retry", err)
 			i.Logger.Errorf("request failed: %v", err)
 			attempts++
