@@ -30,9 +30,6 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 				"console_href":      types.HostConsoleHref,
 				"reporter_version":  types.HostReporterVersion,
 			},
-			"common": map[string]interface{}{
-				"workspace_id": hostMsg.Payload.Groups[0].ID,
-			},
 			"reporter": map[string]interface{}{
 				"satellite_id":          hostMsg.Payload.SatelliteID,
 				"sub_manager_id":        hostMsg.Payload.SubscriptionManagerID,
@@ -40,7 +37,7 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 				"ansible_host":          hostMsg.Payload.AnsibleHost,
 			},
 			"common_resource_data": map[string]interface{}{
-				"workspace_id": hostMsg.Payload.OrganizationID,
+				"workspace_id": hostMsg.Payload.Groups[0].ID,
 			},
 		},
 	}

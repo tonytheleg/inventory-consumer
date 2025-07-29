@@ -23,7 +23,6 @@ type HostMessage struct {
 type HostPayload struct {
 	ID                    string     `json:"id"`
 	AnsibleHost           string     `json:"ansible_host"`
-	OrganizationID        string     `json:"organization_id"`
 	InsightsID            string     `json:"insights_id"`
 	SubscriptionManagerID string     `json:"subscription_manager_id"`
 	SatelliteID           string     `json:"satellite_id"`
