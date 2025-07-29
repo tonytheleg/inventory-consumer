@@ -36,7 +36,7 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 				"insights_inventory_id": hostMsg.Payload.InsightsID,
 				"ansible_host":          hostMsg.Payload.AnsibleHost,
 			},
-			"common_resource_data": map[string]interface{}{
+			"common": map[string]interface{}{
 				"workspace_id": hostMsg.Payload.Groups[0].ID,
 			},
 		},
