@@ -30,8 +30,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet, prefix string) {
 	}
 	fs.BoolVar(&o.Enabled, prefix+"enabled", o.Enabled, "enable the kessel inventory grpc client")
 	fs.StringVar(&o.InventoryURL, prefix+"url", o.InventoryURL, "gRPC endpoint of the kessel inventory service.")
-	fs.StringVar(&o.ClientId, prefix+"sa-client-id", o.ClientId, "service account client id")
-	fs.StringVar(&o.ClientSecret, prefix+"sa-client-secret", o.ClientSecret, "service account secret")
+	fs.StringVar(&o.ClientId, prefix+"client-id", o.ClientId, "service account client id")
+	fs.StringVar(&o.ClientSecret, prefix+"client-secret", o.ClientSecret, "service account secret")
 	fs.StringVar(&o.TokenEndpoint, prefix+"sso-token-endpoint", o.TokenEndpoint, "sso token endpoint for authentication")
 	fs.BoolVar(&o.EnableOidcAuth, prefix+"enable-oidc-auth", o.EnableOidcAuth, "enable oidc token auth to connect with Inventory API service")
 	fs.BoolVar(&o.Insecure, prefix+"insecure-client", o.Insecure, "the http client that connects to kessel should not verify certificates.")
