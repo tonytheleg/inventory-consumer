@@ -358,7 +358,7 @@ func CheckIfCommit(partition kafka.TopicPartition) bool {
 	return partition.Offset%commitModulo == 0
 }
 
-// FormatOffsets converts a slice of partitions with offset data into a more readable shorthand-coded string to capture what partitions and offsets were comitted
+// FormatOffsets converts a slice of partitions with offset data into a more readable shorthand-coded string to capture what partitions and offsets were committed
 func FormatOffsets(offsets []kafka.TopicPartition) string {
 	var committedOffsets []string
 	for _, partition := range offsets {
