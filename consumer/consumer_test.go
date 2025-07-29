@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -128,121 +127,6 @@ func TestNewConsumerSetup(t *testing.T) {
 	}
 	errs := test.TestSetup()
 	assert.Nil(t, errs)
-}
-
-func TestParseCreateOrUpdateMessage(t *testing.T) {
-	expected := makeReportResourceRequest()
-	var req kesselv2.ReportResourceRequest
-	err := ParseCreateOrUpdateMessage([]byte(testCreateOrUpdateMessage), &req)
-	assert.Nil(t, err)
-	assert.Equal(t, expected.InventoryId, req.InventoryId)
-	assert.Equal(t, expected.Type, req.Type)
-	assert.Equal(t, expected.ReporterType, req.ReporterType)
-	assert.Equal(t, expected.ReporterInstanceId, req.ReporterInstanceId)
-	assert.True(t, reflect.DeepEqual(expected.Representations.Metadata, req.Representations.Metadata))
-	assert.True(t, reflect.DeepEqual(expected.Representations.Common.AsMap(), req.Representations.Common.AsMap()))
-	assert.True(t, reflect.DeepEqual(expected.Representations.Reporter.AsMap(), req.Representations.Reporter.AsMap()))
-}
-
-func TestParseDeleteMessage(t *testing.T) {
-	expected := makeDeleteResourceRequest()
-	var req kesselv2.DeleteResourceRequest
-	err := ParseDeleteMessage([]byte(testDeleteMessage), &req)
-	assert.Nil(t, err)
-	assert.Equal(t, expected.Reference.ResourceId, req.Reference.ResourceId)
-	assert.Equal(t, expected.Reference.ResourceType, req.Reference.ResourceType)
-	assert.True(t, reflect.DeepEqual(expected.Reference.Reporter, req.Reference.Reporter))
-
-}
-
-func TestParseHeaders(t *testing.T) {
-	tests := []struct {
-		name              string
-		expectedOperation string
-		expectedTxid      string
-		msg               *kafka.Message
-		expectErr         bool
-	}{
-		{
-			name:              "Create Operation",
-			expectedOperation: OperationTypeCreated,
-			expectedTxid:      "123456",
-			msg: &kafka.Message{
-				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeCreated)},
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name:              "Update Operation",
-			expectedOperation: OperationTypeUpdated,
-			expectedTxid:      "123456",
-			msg: &kafka.Message{
-				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeUpdated)},
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name:              "Delete Operation",
-			expectedOperation: OperationTypeDeleted,
-			expectedTxid:      "",
-			msg: &kafka.Message{
-				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeDeleted)},
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name:              "Missing Operation Header",
-			expectedOperation: "",
-			expectedTxid:      "123456",
-			msg: &kafka.Message{
-				Headers: []kafka.Header{},
-			},
-			expectErr: true,
-		},
-		{
-			name:              "Missing Operation Value",
-			expectedOperation: "",
-			expectedTxid:      "123456",
-			msg: &kafka.Message{
-				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte{}},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name:              "Extra Headers",
-			expectedOperation: OperationTypeCreated,
-			expectedTxid:      "123456",
-			msg: &kafka.Message{
-				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeCreated)},
-					{Key: "unused-header", Value: []byte("unused-header-data")},
-				},
-			},
-			expectErr: false,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			parsedHeaders, err := ParseHeaders(test.msg, requiredHeaders)
-			if test.expectErr {
-				assert.NotNil(t, err)
-				assert.Nil(t, parsedHeaders)
-			} else {
-				assert.Nil(t, err)
-				assert.Equal(t, parsedHeaders["operation"], test.expectedOperation)
-				assert.LessOrEqual(t, len(parsedHeaders), 2)
-			}
-		})
-	}
 }
 
 func TestInventoryConsumer_Retry(t *testing.T) {
@@ -460,6 +344,288 @@ func TestCommitStoredOffsets(t *testing.T) {
 			assert.Equal(t, err, test.responseErr)
 			assert.Equal(t, len(tester.inv.OffsetStorage), len(test.remainingOffsets))
 			assert.Equal(t, tester.inv.OffsetStorage, test.remainingOffsets)
+		})
+	}
+}
+
+func TestInventoryConsumer_RebalanceCallback(t *testing.T) {
+	tests := []struct {
+		name                     string
+		event                    kafka.Event
+		assignmentLost           bool
+		commitOffsetsError       error
+		expectedCommitOffsetCall bool
+		expectedError            error
+	}{
+		{
+			name: "RevokedPartitions with assignment lost calls CommitStoredOffsets",
+			event: kafka.RevokedPartitions{
+				Partitions: []kafka.TopicPartition{
+					{Topic: ToPointer("test-topic"), Partition: 0, Offset: kafka.Offset(10)},
+				},
+			},
+			assignmentLost:           true,
+			commitOffsetsError:       nil,
+			expectedCommitOffsetCall: true,
+			expectedError:            nil,
+		},
+		{
+			name: "RevokedPartitions without assignment lost still calls CommitStoredOffsets",
+			event: kafka.RevokedPartitions{
+				Partitions: []kafka.TopicPartition{
+					{Topic: ToPointer("test-topic"), Partition: 0, Offset: kafka.Offset(10)},
+				},
+			},
+			assignmentLost:           false,
+			commitOffsetsError:       nil,
+			expectedCommitOffsetCall: true,
+			expectedError:            nil,
+		},
+		{
+			name: "RevokedPartitions with CommitStoredOffsets error returns error",
+			event: kafka.RevokedPartitions{
+				Partitions: []kafka.TopicPartition{
+					{Topic: ToPointer("test-topic"), Partition: 0, Offset: kafka.Offset(10)},
+				},
+			},
+			assignmentLost:           true,
+			commitOffsetsError:       errors.New("commit failed"),
+			expectedCommitOffsetCall: true,
+			expectedError:            errors.New("commit failed"),
+		},
+		{
+			name: "AssignedPartitions does not call CommitStoredOffsets",
+			event: kafka.AssignedPartitions{
+				Partitions: []kafka.TopicPartition{
+					{Topic: ToPointer("test-topic"), Partition: 0, Offset: kafka.Offset(10)},
+				},
+			},
+			assignmentLost:           false,
+			commitOffsetsError:       nil,
+			expectedCommitOffsetCall: false,
+			expectedError:            nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tester := TestCase{}
+			errs := tester.TestSetup()
+			assert.Nil(t, errs)
+
+			// Mock the consumer methods
+			mockConsumer := &mocks.MockConsumer{}
+
+			// Only mock AssignmentLost for RevokedPartitions events
+			if _, isRevoked := test.event.(kafka.RevokedPartitions); isRevoked {
+				mockConsumer.On("AssignmentLost").Return(test.assignmentLost)
+			}
+
+			// Set up CommitOffsets mock based on whether we expect it to be called
+			if test.expectedCommitOffsetCall {
+				mockConsumer.On("CommitOffsets", mock.Anything).Return([]kafka.TopicPartition{}, test.commitOffsetsError)
+			}
+
+			tester.inv.Consumer = mockConsumer
+
+			// Add some offsets to storage to simulate having stored offsets
+			tester.inv.OffsetStorage = []kafka.TopicPartition{
+				{Topic: ToPointer("test-topic"), Partition: 0, Offset: kafka.Offset(5)},
+			}
+
+			// Call the RebalanceCallback method
+			err := tester.inv.RebalanceCallback(nil, test.event)
+
+			// Assert expectations
+			assert.Equal(t, test.expectedError, err)
+			mockConsumer.AssertExpectations(t)
+		})
+	}
+}
+
+func TestFormatOffsets(t *testing.T) {
+	tests := []struct {
+		name     string
+		offsets  []kafka.TopicPartition
+		expected string
+	}{
+		{
+			name:     "empty slice returns empty string",
+			offsets:  []kafka.TopicPartition{},
+			expected: "",
+		},
+		{
+			name: "single partition formats correctly",
+			offsets: []kafka.TopicPartition{
+				{Partition: 0, Offset: kafka.Offset(10)},
+			},
+			expected: "[0:10]",
+		},
+		{
+			name: "multiple partitions with same partition number",
+			offsets: []kafka.TopicPartition{
+				{Partition: 0, Offset: kafka.Offset(10)},
+				{Partition: 0, Offset: kafka.Offset(11)},
+				{Partition: 0, Offset: kafka.Offset(12)},
+			},
+			expected: "[0:10],[0:11],[0:12]",
+		},
+		{
+			name: "multiple partitions with different partition numbers",
+			offsets: []kafka.TopicPartition{
+				{Partition: 0, Offset: kafka.Offset(10)},
+				{Partition: 1, Offset: kafka.Offset(5)},
+				{Partition: 2, Offset: kafka.Offset(100)},
+			},
+			expected: "[0:10],[1:5],[2:100]",
+		},
+		{
+			name: "mixed partitions and offsets",
+			offsets: []kafka.TopicPartition{
+				{Partition: 3, Offset: kafka.Offset(0)},
+				{Partition: 0, Offset: kafka.Offset(999)},
+				{Partition: 1, Offset: kafka.Offset(1)},
+			},
+			expected: "[3:0],[0:999],[1:1]",
+		},
+		{
+			name: "large offset values",
+			offsets: []kafka.TopicPartition{
+				{Partition: 10, Offset: kafka.Offset(1000000)},
+				{Partition: 999, Offset: kafka.Offset(9999999999)},
+			},
+			expected: "[10:1000000],[999:9999999999]",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := FormatOffsets(test.offsets)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+}
+
+func TestInventoryConsumer_Shutdown(t *testing.T) {
+	tests := []struct {
+		name                     string
+		consumerClosed           bool
+		hasStoredOffsets         bool
+		commitOffsetsError       error
+		closeError               error
+		expectedError            error
+		expectedCommitOffsetCall bool
+		expectedCloseCall        bool
+	}{
+		{
+			name:                     "consumer not closed, has stored offsets, successful commit and close",
+			consumerClosed:           false,
+			hasStoredOffsets:         true,
+			commitOffsetsError:       nil,
+			closeError:               nil,
+			expectedError:            ErrClosed,
+			expectedCommitOffsetCall: true,
+			expectedCloseCall:        true,
+		},
+		{
+			name:                     "consumer not closed, has stored offsets, commit fails but close succeeds",
+			consumerClosed:           false,
+			hasStoredOffsets:         true,
+			commitOffsetsError:       errors.New("commit failed"),
+			closeError:               nil,
+			expectedError:            ErrClosed,
+			expectedCommitOffsetCall: true,
+			expectedCloseCall:        true,
+		},
+		{
+			name:                     "consumer not closed, has stored offsets, commit succeeds but close fails",
+			consumerClosed:           false,
+			hasStoredOffsets:         true,
+			commitOffsetsError:       nil,
+			closeError:               errors.New("close failed"),
+			expectedError:            errors.New("close failed"),
+			expectedCommitOffsetCall: true,
+			expectedCloseCall:        true,
+		},
+		{
+			name:                     "consumer not closed, no stored offsets, close succeeds",
+			consumerClosed:           false,
+			hasStoredOffsets:         false,
+			commitOffsetsError:       nil,
+			closeError:               nil,
+			expectedError:            ErrClosed,
+			expectedCommitOffsetCall: false,
+			expectedCloseCall:        true,
+		},
+		{
+			name:                     "consumer not closed, no stored offsets, close fails",
+			consumerClosed:           false,
+			hasStoredOffsets:         false,
+			commitOffsetsError:       nil,
+			closeError:               errors.New("close failed"),
+			expectedError:            errors.New("close failed"),
+			expectedCommitOffsetCall: false,
+			expectedCloseCall:        true,
+		},
+		{
+			name:                     "consumer already closed - returns ErrClosed immediately",
+			consumerClosed:           true,
+			hasStoredOffsets:         true, // Even with stored offsets, they won't be committed
+			commitOffsetsError:       nil,
+			closeError:               nil,
+			expectedError:            ErrClosed,
+			expectedCommitOffsetCall: false,
+			expectedCloseCall:        false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tester := TestCase{}
+			errs := tester.TestSetup()
+			assert.Nil(t, errs)
+
+			// Mock the consumer methods
+			mockConsumer := &mocks.MockConsumer{}
+			mockConsumer.On("IsClosed").Return(test.consumerClosed)
+
+			// Set up CommitOffsets mock based on whether we expect it to be called
+			if test.expectedCommitOffsetCall {
+				mockConsumer.On("CommitOffsets", mock.Anything).Return([]kafka.TopicPartition{}, test.commitOffsetsError)
+			}
+
+			// Set up Close mock based on whether we expect it to be called
+			if test.expectedCloseCall {
+				mockConsumer.On("Close").Return(test.closeError)
+			}
+
+			tester.inv.Consumer = mockConsumer
+
+			// Set up offset storage based on test requirements
+			if test.hasStoredOffsets {
+				tester.inv.OffsetStorage = []kafka.TopicPartition{
+					{Topic: ToPointer("test-topic"), Partition: 0, Offset: kafka.Offset(5)},
+					{Topic: ToPointer("test-topic"), Partition: 1, Offset: kafka.Offset(10)},
+				}
+			} else {
+				tester.inv.OffsetStorage = []kafka.TopicPartition{}
+			}
+
+			// Call the Shutdown method
+			err := tester.inv.Shutdown()
+
+			// Assert expectations
+			if test.expectedError != nil {
+				if errors.Is(test.expectedError, ErrClosed) {
+					assert.Equal(t, ErrClosed, err)
+				} else {
+					assert.Equal(t, test.expectedError.Error(), err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			mockConsumer.AssertExpectations(t)
 		})
 	}
 }
