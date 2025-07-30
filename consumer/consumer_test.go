@@ -69,8 +69,8 @@ func (t *TestCase) TestSetup() []error {
 	// Create mock consumer first
 	mockConsumer := &mocks.MockConsumer{}
 
-	// Use NewWithConsumer to avoid creating a real Kafka connection
-	t.inv, err = NewWithConsumer(t.completedConfig, nil, t.logger, mockConsumer)
+	// Pass mock consumer to avoid creating a real Kafka connection
+	t.inv, err = New(t.completedConfig, nil, t.logger, mockConsumer)
 	if err != nil {
 		errs = append(errs, err)
 	}
