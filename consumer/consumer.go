@@ -104,6 +104,44 @@ func New(config CompletedConfig, client kessel.ClientProvider, logger *log.Helpe
 	}, nil
 }
 
+// NewWithConsumer instantiates a new InventoryConsumer with a provided consumer (useful for testing)
+func NewWithConsumer(config CompletedConfig, client kessel.ClientProvider, logger *log.Helper, consumer Consumer) (InventoryConsumer, error) {
+	logger.Info("Setting up kafka consumer with provided consumer")
+
+	var mc metricscollector.MetricsCollector
+	err := mc.New(config.Topics)
+	if err != nil {
+		logger.Errorf("error creating metrics collector: %v", err)
+		return InventoryConsumer{}, err
+	}
+
+	authnOptions := &auth.Options{
+		Enabled:          config.AuthConfig.Enabled,
+		SecurityProtocol: config.AuthConfig.SecurityProtocol,
+		SASLMechanism:    config.AuthConfig.SASLMechanism,
+		SASLUsername:     config.AuthConfig.SASLUsername,
+		SASLPassword:     config.AuthConfig.SASLPassword,
+	}
+
+	retryOptions := &retry.Options{
+		ConsumerMaxRetries:  config.RetryConfig.ConsumerMaxRetries,
+		OperationMaxRetries: config.RetryConfig.OperationMaxRetries,
+		BackoffFactor:       config.RetryConfig.BackoffFactor,
+		MaxBackoffSeconds:   config.RetryConfig.MaxBackoffSeconds,
+	}
+
+	return InventoryConsumer{
+		Consumer:         consumer,
+		Client:           client,
+		OffsetStorage:    make([]kafka.TopicPartition, 0),
+		Config:           config,
+		MetricsCollector: &mc,
+		Logger:           logger,
+		AuthOptions:      authnOptions,
+		RetryOptions:     retryOptions,
+	}, nil
+}
+
 // KeyPayload stores the event message key captured from the topic as emitted by Debezium
 type KeyPayload struct {
 	MessageSchema map[string]interface{} `json:"schema"`

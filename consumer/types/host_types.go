@@ -12,6 +12,10 @@ const (
 	HostAPIHref            = "https://apiHref.com/"
 	HostConsoleHref        = "https://www.console.com/"
 	HostReporterVersion    = "1.0"
+
+	// Error messages for GroupSlice unmarshaling
+	ErrGroupsNotArrayOrString = "groups field is neither an array nor a string"
+	ErrGroupsInvalidJSON      = "failed to parse groups JSON string"
 )
 
 // HostMessage represents the structure of a Host Debezium change event
@@ -48,12 +52,12 @@ func (gs *GroupSlice) UnmarshalJSON(data []byte) error {
 	// If that fails, try to unmarshal as a string containing JSON
 	var groupsStr string
 	if err := json.Unmarshal(data, &groupsStr); err != nil {
-		return fmt.Errorf("groups field is neither an array nor a string: %v", err)
+		return fmt.Errorf("%s: %v", ErrGroupsNotArrayOrString, err)
 	}
 
 	// Parse the JSON string
 	if err := json.Unmarshal([]byte(groupsStr), &groups); err != nil {
-		return fmt.Errorf("failed to parse groups JSON string: %v", err)
+		return fmt.Errorf("%s: %v", ErrGroupsInvalidJSON, err)
 	}
 
 	*gs = GroupSlice(groups)
