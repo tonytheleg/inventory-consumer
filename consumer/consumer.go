@@ -61,17 +61,25 @@ type InventoryConsumer struct {
 }
 
 // New instantiates a new InventoryConsumer
-func New(config CompletedConfig, client kessel.ClientProvider, logger *log.Helper) (InventoryConsumer, error) {
-	logger.Info("Setting up kafka consumer")
-	logger.Debugf("completed kafka config: %+v", config.KafkaConfig)
-	consumer, err := kafka.NewConsumer(config.KafkaConfig)
-	if err != nil {
-		logger.Errorf("error creating kafka consumer: %v", err)
-		return InventoryConsumer{}, err
+// If consumer is nil, a new kafka consumer will be created from config
+// If consumer is provided, it will be used (useful for testing)
+func New(config CompletedConfig, client kessel.ClientProvider, logger *log.Helper, consumer Consumer) (InventoryConsumer, error) {
+	// Create consumer if not provided
+	if consumer == nil {
+		logger.Info("Setting up kafka consumer")
+		logger.Debugf("completed kafka config: %+v", config.KafkaConfig)
+		kafkaConsumer, err := kafka.NewConsumer(config.KafkaConfig)
+		if err != nil {
+			logger.Errorf("error creating kafka consumer: %v", err)
+			return InventoryConsumer{}, err
+		}
+		consumer = kafkaConsumer
+	} else {
+		logger.Info("Setting up kafka consumer with provided consumer")
 	}
 
 	var mc metricscollector.MetricsCollector
-	err = mc.New(config.Topics)
+	err := mc.New(config.Topics)
 	if err != nil {
 		logger.Errorf("error creating metrics collector: %v", err)
 		return InventoryConsumer{}, err
@@ -127,7 +135,7 @@ func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, client
 		// If the consumer cannot process a message, the consumer loop is restarted
 		// This is to ensure we re-read the message and prevent it being dropped and moving to next message.
 		// To re-read the current message, we have to recreate the consumer connection so that the earliest offset is used
-		kic, err := New(config, client, logger)
+		kic, err := New(config, client, logger, nil)
 		if err != nil {
 			return err
 		}

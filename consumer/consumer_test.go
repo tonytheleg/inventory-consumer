@@ -10,6 +10,8 @@ import (
 
 	"github.com/project-kessel/inventory-consumer/internal/mocks"
 	metricscollector "github.com/project-kessel/inventory-consumer/metrics"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -23,6 +25,8 @@ const (
 	testMessageKey            = `{"schema":{"type":"string","optional":false},"payload":"00000000-0000-0000-0000-000000000000"}`
 	testCreateOrUpdateMessage = `{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"},{"type":"string","optional":true,"field":"reporter_type"},{"type":"string","optional":true,"field":"reporter_instance_id"},{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"local_resource_id"},{"type":"string","optional":true,"field":"api_href"},{"type":"string","optional":true,"field":"console_href"},{"type":"string","optional":true,"field":"reporter_version"}],"optional":true,"name":"metadata"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"workspace_id"}],"optional":true,"name":"common"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"insights_inventory_id"},{"type":"string","optional":true,"field":"ansible_host"}],"optional":true,"name":"reporter"}],"optional":true,"name":"representations"}],"optional":true,"name":"payload"},"payload":{"type":"host","reporter_type":"hbi","reporter_instance_id":"00000000-0000-0000-0000-000000000000","representations":{"metadata":{"local_resource_id":"00000000-0000-0000-0000-000000000000","api_href":"https://apiHref.com/","console_href":"https://www.console.com/","reporter_version":"2.7.16"},"common":{"workspace_id":"00000000-0000-0000-0000-000000000000"},"reporter":{"satellite_id":"00000000-0000-0000-0000-000000000000","subscription_manager_id":"00000000-0000-0000-0000-000000000000","insights_inventory_id":"00000000-0000-0000-0000-000000000000","ansible_host":"my-ansible-host"}}}}`
 	testDeleteMessage         = `{"schema":{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"resource_type"},{"type":"string","optional":true,"field":"resource_id"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"}],"optional":true,"name":"reporter"}],"optional":true,"name":"reference"}],"optional":true,"name":"payload"},"payload":{"reference":{"resource_type":"host","resource_id":"00000000-0000-0000-0000-000000000000","reporter":{"type":"hbi"}}}}`
+	testMigrationMessage      = `{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"id"},{"type":"string","optional":true,"field":"ansible_host"},{"type":"string","optional":true,"field":"insights_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"groups"}],"optional":true,"name":"payload"},"payload":{"id":"00000000-0000-0000-0000-000000000000","ansible_host":"my-ansible-host","insights_id":"00000000-0000-0000-0000-000000000000","subscription_manager_id":"00000000-0000-0000-0000-000000000000","satellite_id":"00000000-0000-0000-0000-000000000000","groups":"[{\"id\":\"00000000-0000-0000-0000-000000000000\"}]"}}`
+	testMigrationKey          = `{"payload":{"id":"00000000-0000-0000-0000-000000000000"}}`
 )
 
 type TestCase struct {
@@ -62,13 +66,14 @@ func (t *TestCase) TestSetup() []error {
 		errs = append(errs, errList...)
 	}
 
-	consumer := mocks.MockConsumer{}
-	t.inv, err = New(t.completedConfig, nil, t.logger)
+	// Create mock consumer first
+	mockConsumer := &mocks.MockConsumer{}
+
+	// Pass mock consumer to avoid creating a real Kafka connection
+	t.inv, err = New(t.completedConfig, nil, t.logger, mockConsumer)
 	if err != nil {
 		errs = append(errs, err)
 	}
-
-	t.inv.Consumer = &consumer
 
 	err = t.metrics.New(t.config.Topics)
 	if err != nil {
@@ -172,6 +177,8 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 		expectedOperation string
 		msg               *kafka.Message
 		clientEnabled     bool
+		setupMock         func(*mocks.MockClient)
+		expectError       bool
 	}{
 		{
 			name:              "Create Operation",
@@ -181,6 +188,9 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				Value: []byte(testCreateOrUpdateMessage),
 			},
 			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
+			},
 		},
 		{
 			name:              "Update Operation",
@@ -190,6 +200,9 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				Value: []byte(testCreateOrUpdateMessage),
 			},
 			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
+			},
 		},
 		{
 			name:              "Delete Operation",
@@ -199,12 +212,16 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				Value: []byte(testDeleteMessage),
 			},
 			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil)
+			},
 		},
 		{
 			name:              "Fake Operation",
 			expectedOperation: "fake-operation",
 			msg:               &kafka.Message{},
 			clientEnabled:     true,
+			setupMock:         func(client *mocks.MockClient) {},
 		},
 		{
 			name:              "Created but inventory client disabled",
@@ -214,6 +231,72 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				Value: []byte(testDeleteMessage),
 			},
 			clientEnabled: false,
+			setupMock:     func(client *mocks.MockClient) {},
+		},
+		{
+			name:              "Migration Operation - Create/Update Host",
+			expectedOperation: OperationTypeMigration,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(testMigrationMessage),
+			},
+			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
+			},
+		},
+		{
+			name:              "Migration Operation - Delete Host (tombstone)",
+			expectedOperation: OperationTypeMigration,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(""), // Empty value indicates tombstone/deletion
+			},
+			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil)
+			},
+		},
+		{
+			name:              "Migration Operation - Delete Host NotFound (should drop message)",
+			expectedOperation: OperationTypeMigration,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(""),
+			},
+			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				// Return NotFound error on first attempt, which should cause message to be dropped
+				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, status.Error(codes.NotFound, "resource not found"))
+			},
+		},
+		{
+			name:              "Migration Operation - Create/Update with Retry",
+			expectedOperation: OperationTypeMigration,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(testMigrationMessage),
+			},
+			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				// Fail first attempt, succeed on second
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, errors.New("temporary error")).Once()
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil).Once()
+			},
+		},
+		{
+			name:              "Migration Operation - Delete with Retry",
+			expectedOperation: OperationTypeMigration,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(""),
+			},
+			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				// Fail first attempt with non-NotFound error, succeed on second
+				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, errors.New("temporary error")).Once()
+				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil).Once()
+			},
 		},
 	}
 
@@ -224,9 +307,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			assert.Nil(t, errs)
 
 			client := &mocks.MockClient{}
-			client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
-			client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil)
-			client.On("IsEnabled").Return(test.clientEnabled)
+
+			client.On("IsEnabled").Return(test.clientEnabled).Maybe()
+
+			// Run test-specific mock setup
+			test.setupMock(client)
+
 			tester.inv.Client = client
 
 			headers := []kafka.Header{
@@ -238,13 +324,15 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, parsedHeaders["operation"], test.expectedOperation)
 
-			if (test.expectedOperation == OperationTypeCreated) || test.expectedOperation == OperationTypeUpdated && test.clientEnabled {
-				err := tester.inv.ProcessMessage(operation, test.msg)
-				assert.Nil(t, err)
+			err = tester.inv.ProcessMessage(operation, test.msg)
+			if test.expectError {
+				assert.NotNil(t, err)
 			} else {
-				err := tester.inv.ProcessMessage(operation, test.msg)
 				assert.Nil(t, err)
 			}
+
+			// Verify all expected mock calls were made
+			client.AssertExpectations(t)
 		})
 	}
 }
