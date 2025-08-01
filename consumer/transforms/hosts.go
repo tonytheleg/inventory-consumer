@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/project-kessel/inventory-consumer/consumer/types"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 )
 
 // TransformHostToReportResourceRequest transforms a Debezium message into a kesselv2.ReportResourceRequest
-func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceRequest, error) {
+func TransformHostToReportResourceRequest(msg []byte) (*v1beta2.ReportResourceRequest, error) {
 	var hostMsg types.HostMessage
 	err := json.Unmarshal(msg, &hostMsg)
 	if err != nil {
@@ -48,7 +48,7 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 		return nil, fmt.Errorf("error marshaling intermediate payload: %v", err)
 	}
 
-	var request kesselv2.ReportResourceRequest
+	var request v1beta2.ReportResourceRequest
 	err = json.Unmarshal(payloadBytes, &request)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling to ReportResourceRequest: %v", err)
@@ -59,7 +59,7 @@ func TransformHostToReportResourceRequest(msg []byte) (*kesselv2.ReportResourceR
 
 // TransformHostToDeleteResourceRequest transforms a tombstone message into a kesselv2.DeleteResourceRequest
 // Extracts the resource ID from the message key since tombstones have empty values
-func TransformHostToDeleteResourceRequest(msgValue []byte, msgKey []byte) (*kesselv2.DeleteResourceRequest, error) {
+func TransformHostToDeleteResourceRequest(msgValue []byte, msgKey []byte) (*v1beta2.DeleteResourceRequest, error) {
 	// Extract ID from the key
 	if len(msgKey) == 0 {
 		return nil, fmt.Errorf("tombstone message has no key to extract resource ID")
@@ -81,11 +81,11 @@ func TransformHostToDeleteResourceRequest(msgValue []byte, msgKey []byte) (*kess
 		return nil, fmt.Errorf("cannot extract resource ID from tombstone message key")
 	}
 
-	return &kesselv2.DeleteResourceRequest{
-		Reference: &kesselv2.ResourceReference{
+	return &v1beta2.DeleteResourceRequest{
+		Reference: &v1beta2.ResourceReference{
 			ResourceType: types.HostResourceType,
 			ResourceId:   resourceID,
-			Reporter: &kesselv2.ReporterReference{
+			Reporter: &v1beta2.ReporterReference{
 				Type: types.HostReporterType,
 			},
 		},

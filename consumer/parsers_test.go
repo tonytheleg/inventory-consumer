@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -101,7 +101,7 @@ func TestParseHeaders(t *testing.T) {
 
 func TestParseCreateOrUpdateMessage(t *testing.T) {
 	expected := makeReportResourceRequest()
-	var req kesselv2.ReportResourceRequest
+	var req v1beta2.ReportResourceRequest
 	err := ParseCreateOrUpdateMessage([]byte(testCreateOrUpdateMessage), &req)
 	assert.Nil(t, err)
 	assert.Equal(t, expected.InventoryId, req.InventoryId)
@@ -115,7 +115,7 @@ func TestParseCreateOrUpdateMessage(t *testing.T) {
 
 func TestParseDeleteMessage(t *testing.T) {
 	expected := makeDeleteResourceRequest()
-	var req kesselv2.DeleteResourceRequest
+	var req v1beta2.DeleteResourceRequest
 	err := ParseDeleteMessage([]byte(testDeleteMessage), &req)
 	assert.Nil(t, err)
 	assert.Equal(t, expected.Reference.ResourceId, req.Reference.ResourceId)

@@ -12,12 +12,12 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/project-kessel/inventory-consumer/consumer/auth"
 	"github.com/project-kessel/inventory-consumer/consumer/retry"
 	"github.com/project-kessel/inventory-consumer/consumer/transforms"
 	kessel "github.com/project-kessel/inventory-consumer/internal/client"
 	metricscollector "github.com/project-kessel/inventory-consumer/metrics"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -319,7 +319,7 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
-		var req kesselv2.ReportResourceRequest
+		var req v1beta2.ReportResourceRequest
 		err := ParseCreateOrUpdateMessage(msg.Value, &req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseCreateOrUpdateMessage", err)
@@ -344,7 +344,7 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 		i.Logger.Infof("processing message: operation=%s", operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
-		var req kesselv2.DeleteResourceRequest
+		var req v1beta2.DeleteResourceRequest
 		err := ParseDeleteMessage(msg.Value, &req)
 		if err != nil {
 			metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseDeleteMessage", err)

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/project-kessel/inventory-consumer/internal/mocks"
@@ -19,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/project-kessel/inventory-api/cmd/common"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 )
 
 const (
@@ -83,7 +83,7 @@ func (t *TestCase) TestSetup() []error {
 	return errs
 }
 
-func makeReportResourceRequest() kesselv2.ReportResourceRequest {
+func makeReportResourceRequest() v1beta2.ReportResourceRequest {
 	commonData, _ := structpb.NewStruct(map[string]interface{}{
 		"workspace_id": "00000000-0000-0000-0000-000000000000",
 	})
@@ -95,12 +95,12 @@ func makeReportResourceRequest() kesselv2.ReportResourceRequest {
 		"ansible_host":            "my-ansible-host",
 	})
 
-	return kesselv2.ReportResourceRequest{
+	return v1beta2.ReportResourceRequest{
 		Type:               "host",
 		ReporterType:       "hbi",
 		ReporterInstanceId: "00000000-0000-0000-0000-000000000000",
-		Representations: &kesselv2.ResourceRepresentations{
-			Metadata: &kesselv2.RepresentationMetadata{
+		Representations: &v1beta2.ResourceRepresentations{
+			Metadata: &v1beta2.RepresentationMetadata{
 				LocalResourceId: "00000000-0000-0000-0000-000000000000",
 				ApiHref:         "https://apiHref.com/",
 				ConsoleHref:     ToPointer("https://www.console.com/"),
@@ -113,12 +113,12 @@ func makeReportResourceRequest() kesselv2.ReportResourceRequest {
 	}
 }
 
-func makeDeleteResourceRequest() kesselv2.DeleteResourceRequest {
-	return kesselv2.DeleteResourceRequest{
-		Reference: &kesselv2.ResourceReference{
+func makeDeleteResourceRequest() v1beta2.DeleteResourceRequest {
+	return v1beta2.DeleteResourceRequest{
+		Reference: &v1beta2.ResourceReference{
 			ResourceType: "host",
 			ResourceId:   "00000000-0000-0000-0000-000000000000",
-			Reporter: &kesselv2.ReporterReference{
+			Reporter: &v1beta2.ReporterReference{
 				Type: "hbi",
 			},
 		},
@@ -189,7 +189,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			},
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
-				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
 		},
 		{
@@ -201,7 +201,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			},
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
-				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
 		},
 		{
@@ -213,7 +213,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			},
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
-				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil)
+				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, nil)
 			},
 		},
 		{
@@ -242,7 +242,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			},
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
-				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil)
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
 		},
 		{
@@ -254,7 +254,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			},
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
-				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil)
+				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, nil)
 			},
 		},
 		{
@@ -267,7 +267,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
 				// Return NotFound error on first attempt, which should cause message to be dropped
-				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, status.Error(codes.NotFound, "resource not found"))
+				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, status.Error(codes.NotFound, "resource not found"))
 			},
 		},
 		{
@@ -280,8 +280,8 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
 				// Fail first attempt, succeed on second
-				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, errors.New("temporary error")).Once()
-				client.On("CreateOrUpdateResource", mock.Anything).Return(&kesselv2.ReportResourceResponse{}, nil).Once()
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, errors.New("temporary error")).Once()
+				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil).Once()
 			},
 		},
 		{
@@ -294,8 +294,8 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			clientEnabled: true,
 			setupMock: func(client *mocks.MockClient) {
 				// Fail first attempt with non-NotFound error, succeed on second
-				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, errors.New("temporary error")).Once()
-				client.On("DeleteResource", mock.Anything).Return(&kesselv2.DeleteResourceResponse{}, nil).Once()
+				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, errors.New("temporary error")).Once()
+				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, nil).Once()
 			},
 		},
 	}
