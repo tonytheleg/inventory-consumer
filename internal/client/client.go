@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/project-kessel/kessel-sdk-go/kessel/errors"
 	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 )
 
@@ -47,9 +48,14 @@ func New(c CompletedConfig, logger *log.Helper) (*KesselClient, error) {
 			Build()
 	}
 	if err != nil {
-		return &KesselClient{}, fmt.Errorf("failed to create Inventory API gRPC client: %w", err)
+		if errors.IsConnectionError(err) {
+			return &KesselClient{}, fmt.Errorf("failed to establish connection: %w", err)
+		} else if errors.IsTokenError(err) {
+			return &KesselClient{}, fmt.Errorf("oauth2 token configuration failed: %w", err)
+		} else {
+			return &KesselClient{}, fmt.Errorf("failed to create Inventory API gRPC client: %w", err)
+		}
 	}
-
 	return &KesselClient{
 		InventoryClient: client,
 		Enabled:         c.Enabled,
@@ -66,7 +72,7 @@ func (k *KesselClient) CreateOrUpdateResource(request *v1beta2.ReportResourceReq
 }
 
 func (k *KesselClient) DeleteResource(request *v1beta2.DeleteResourceRequest) (*v1beta2.DeleteResourceResponse, error) {
-	resp, err := k.DeleteResource(request)
+	resp, err := k.KesselInventoryServiceClient.DeleteResource(context.Background(), request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete resource: %w", err)
 	}
