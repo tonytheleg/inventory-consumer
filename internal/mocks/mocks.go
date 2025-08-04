@@ -2,7 +2,7 @@ package mocks
 
 import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -44,14 +44,14 @@ func (m *MockConsumer) AssignmentLost() bool {
 	return args.Get(0).(bool)
 }
 
-func (m *MockClient) CreateOrUpdateResource(request *kesselv2.ReportResourceRequest) (*kesselv2.ReportResourceResponse, error) {
+func (m *MockClient) CreateOrUpdateResource(request *v1beta2.ReportResourceRequest) (*v1beta2.ReportResourceResponse, error) {
 	args := m.Called(request)
-	return args.Get(0).(*kesselv2.ReportResourceResponse), args.Error(1)
+	return args.Get(0).(*v1beta2.ReportResourceResponse), args.Error(1)
 }
 
-func (m *MockClient) DeleteResource(request *kesselv2.DeleteResourceRequest) (*kesselv2.DeleteResourceResponse, error) {
+func (m *MockClient) DeleteResource(request *v1beta2.DeleteResourceRequest) (*v1beta2.DeleteResourceResponse, error) {
 	args := m.Called(request)
-	return args.Get(0).(*kesselv2.DeleteResourceResponse), args.Error(1)
+	return args.Get(0).(*v1beta2.DeleteResourceResponse), args.Error(1)
 }
 
 func (m *MockClient) IsEnabled() bool {

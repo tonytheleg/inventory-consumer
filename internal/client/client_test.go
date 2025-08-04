@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/go-kratos/kratos/v2/log"
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/project-kessel/inventory-consumer/internal/common"
 	"github.com/project-kessel/inventory-consumer/internal/mocks"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -128,36 +128,36 @@ func TestClientProvider_CreateOrUpdateResource(t *testing.T) {
 	tests := []struct {
 		name           string
 		mockSetup      func(*mocks.MockClient)
-		request        *kesselv2.ReportResourceRequest
-		expectedResult *kesselv2.ReportResourceResponse
+		request        *v1beta2.ReportResourceRequest
+		expectedResult *v1beta2.ReportResourceResponse
 		expectedError  error
 	}{
 		{
 			name: "successful create or update resource",
 			mockSetup: func(m *mocks.MockClient) {
 				m.On("CreateOrUpdateResource", mock.Anything).
-					Return(&kesselv2.ReportResourceResponse{}, nil)
+					Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
-			request: &kesselv2.ReportResourceRequest{
+			request: &v1beta2.ReportResourceRequest{
 				Type:               "host",
 				ReporterType:       "hbi",
 				ReporterInstanceId: "test-instance",
 			},
-			expectedResult: &kesselv2.ReportResourceResponse{},
+			expectedResult: &v1beta2.ReportResourceResponse{},
 			expectedError:  nil,
 		},
 		{
 			name: "create or update resource fails",
 			mockSetup: func(m *mocks.MockClient) {
 				m.On("CreateOrUpdateResource", mock.Anything).
-					Return(&kesselv2.ReportResourceResponse{}, errors.New("grpc error"))
+					Return(&v1beta2.ReportResourceResponse{}, errors.New("grpc error"))
 			},
-			request: &kesselv2.ReportResourceRequest{
+			request: &v1beta2.ReportResourceRequest{
 				Type:               "host",
 				ReporterType:       "hbi",
 				ReporterInstanceId: "test-instance",
 			},
-			expectedResult: &kesselv2.ReportResourceResponse{},
+			expectedResult: &v1beta2.ReportResourceResponse{},
 			expectedError:  errors.New("grpc error"),
 		},
 		{
@@ -165,14 +165,14 @@ func TestClientProvider_CreateOrUpdateResource(t *testing.T) {
 			mockSetup: func(m *mocks.MockClient) {
 				// Use mock.Anything for simpler matching
 				m.On("CreateOrUpdateResource", mock.Anything).
-					Return(&kesselv2.ReportResourceResponse{}, nil)
+					Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
-			request: &kesselv2.ReportResourceRequest{
+			request: &v1beta2.ReportResourceRequest{
 				Type:               "host",
 				ReporterType:       "hbi",
 				ReporterInstanceId: "specific-instance",
 			},
-			expectedResult: &kesselv2.ReportResourceResponse{},
+			expectedResult: &v1beta2.ReportResourceResponse{},
 			expectedError:  nil,
 		},
 	}
@@ -208,44 +208,44 @@ func TestClientProvider_DeleteResource(t *testing.T) {
 	tests := []struct {
 		name           string
 		mockSetup      func(*mocks.MockClient)
-		request        *kesselv2.DeleteResourceRequest
-		expectedResult *kesselv2.DeleteResourceResponse
+		request        *v1beta2.DeleteResourceRequest
+		expectedResult *v1beta2.DeleteResourceResponse
 		expectedError  error
 	}{
 		{
 			name: "successful delete resource",
 			mockSetup: func(m *mocks.MockClient) {
 				m.On("DeleteResource", mock.Anything).
-					Return(&kesselv2.DeleteResourceResponse{}, nil)
+					Return(&v1beta2.DeleteResourceResponse{}, nil)
 			},
-			request: &kesselv2.DeleteResourceRequest{
-				Reference: &kesselv2.ResourceReference{
+			request: &v1beta2.DeleteResourceRequest{
+				Reference: &v1beta2.ResourceReference{
 					ResourceType: "host",
 					ResourceId:   "test-host-id",
-					Reporter: &kesselv2.ReporterReference{
+					Reporter: &v1beta2.ReporterReference{
 						Type: "hbi",
 					},
 				},
 			},
-			expectedResult: &kesselv2.DeleteResourceResponse{},
+			expectedResult: &v1beta2.DeleteResourceResponse{},
 			expectedError:  nil,
 		},
 		{
 			name: "delete resource fails",
 			mockSetup: func(m *mocks.MockClient) {
 				m.On("DeleteResource", mock.Anything).
-					Return(&kesselv2.DeleteResourceResponse{}, errors.New("delete failed"))
+					Return(&v1beta2.DeleteResourceResponse{}, errors.New("delete failed"))
 			},
-			request: &kesselv2.DeleteResourceRequest{
-				Reference: &kesselv2.ResourceReference{
+			request: &v1beta2.DeleteResourceRequest{
+				Reference: &v1beta2.ResourceReference{
 					ResourceType: "host",
 					ResourceId:   "test-host-id",
-					Reporter: &kesselv2.ReporterReference{
+					Reporter: &v1beta2.ReporterReference{
 						Type: "hbi",
 					},
 				},
 			},
-			expectedResult: &kesselv2.DeleteResourceResponse{},
+			expectedResult: &v1beta2.DeleteResourceResponse{},
 			expectedError:  errors.New("delete failed"),
 		},
 	}

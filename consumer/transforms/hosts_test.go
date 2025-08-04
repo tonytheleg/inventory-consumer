@@ -3,8 +3,8 @@ package transforms
 import (
 	"testing"
 
-	kesselv2 "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta2"
 	"github.com/project-kessel/inventory-consumer/consumer/types"
+	"github.com/project-kessel/kessel-sdk-go/kessel/inventory/v1beta2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -112,13 +112,13 @@ func TestTransformHostToReportResourceRequest(t *testing.T) {
 		message       []byte
 		expectError   bool
 		errorContains string
-		validate      func(*testing.T, *kesselv2.ReportResourceRequest)
+		validate      func(*testing.T, *v1beta2.ReportResourceRequest)
 	}{
 		{
 			name:        "valid host message transforms correctly",
 			message:     []byte(testHostMessageValid),
 			expectError: false,
-			validate: func(t *testing.T, req *kesselv2.ReportResourceRequest) {
+			validate: func(t *testing.T, req *v1beta2.ReportResourceRequest) {
 				assert.Equal(t, types.HostResourceType, req.Type)
 				assert.Equal(t, types.HostReporterType, req.ReporterType)
 				assert.Equal(t, types.HostReporterInstanceID, req.ReporterInstanceId)
@@ -147,7 +147,7 @@ func TestTransformHostToReportResourceRequest(t *testing.T) {
 			name:        "host message with multiple groups uses first group",
 			message:     []byte(testHostMessageMultipleGroups),
 			expectError: false,
-			validate: func(t *testing.T, req *kesselv2.ReportResourceRequest) {
+			validate: func(t *testing.T, req *v1beta2.ReportResourceRequest) {
 				commonMap := req.Representations.Common.AsMap()
 				assert.Equal(t, testWorkspaceID2, commonMap["workspace_id"])
 			},
@@ -222,14 +222,14 @@ func TestTransformHostToDeleteResourceRequest(t *testing.T) {
 		msgKey        []byte
 		expectError   bool
 		errorContains string
-		validate      func(*testing.T, *kesselv2.DeleteResourceRequest)
+		validate      func(*testing.T, *v1beta2.DeleteResourceRequest)
 	}{
 		{
 			name:        "valid tombstone transforms correctly",
 			msgValue:    []byte{},
 			msgKey:      []byte(testTombstoneKey),
 			expectError: false,
-			validate: func(t *testing.T, req *kesselv2.DeleteResourceRequest) {
+			validate: func(t *testing.T, req *v1beta2.DeleteResourceRequest) {
 				assert.NotNil(t, req.Reference)
 				assert.Equal(t, types.HostResourceType, req.Reference.ResourceType)
 				assert.Equal(t, testDeletedHostID, req.Reference.ResourceId)
