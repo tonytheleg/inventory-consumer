@@ -91,6 +91,7 @@ func New(config CompletedConfig, client kessel.ClientProvider, logger *log.Helpe
 		SASLMechanism:    config.AuthConfig.SASLMechanism,
 		SASLUsername:     config.AuthConfig.SASLUsername,
 		SASLPassword:     config.AuthConfig.SASLPassword,
+		CACertLocation:   config.AuthConfig.CACertLocation,
 	}
 
 	retryOptions := &retry.Options{
