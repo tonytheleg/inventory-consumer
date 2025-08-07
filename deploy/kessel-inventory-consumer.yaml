@@ -32,10 +32,16 @@ objects:
             volumeMounts:
                 - name: config-volume
                   mountPath: "/inventory"
+                - name: kafka-ca-certs
+                  mountPath: "/kafka-ca-certs"
             volumes:
               - name: config-volume
                 secret:
                   secretName: kessel-inventory-consumer-config
+              - name: kafka-ca-certs
+                secret:
+                  secretName: ${CA_CERT_SECRET}
+                  optional: true
             readinessProbe:
               exec:
                 command: ["inventory-consumer", "readyz"]
@@ -71,3 +77,6 @@ parameters:
   - description: Number of replicas
     name: REPLICAS
     value: "3"
+  - description: Name of Secret that contains the Kafka clusters' CA Cert (if required)
+    name: CA_CERT_SECRET
+    value: kessel-kafka-connect-config
