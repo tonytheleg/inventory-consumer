@@ -13,39 +13,46 @@ func TestParseHeaders(t *testing.T) {
 	tests := []struct {
 		name              string
 		expectedOperation string
+		expectedVersion   string
 		expectedTxid      string
 		msg               *kafka.Message
 		expectErr         bool
 	}{
 		{
 			name:              "Create Operation",
-			expectedOperation: OperationTypeCreated,
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   defaultApiVersion,
 			expectedTxid:      "123456",
 			msg: &kafka.Message{
 				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeCreated)},
+					{Key: "operation", Value: []byte(OperationTypeReportResource)},
+					{Key: "version", Value: []byte(defaultApiVersion)},
 				},
 			},
 			expectErr: false,
 		},
 		{
 			name:              "Update Operation",
-			expectedOperation: OperationTypeUpdated,
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   defaultApiVersion,
 			expectedTxid:      "123456",
 			msg: &kafka.Message{
 				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeUpdated)},
+					{Key: "operation", Value: []byte(OperationTypeReportResource)},
+					{Key: "version", Value: []byte(defaultApiVersion)},
 				},
 			},
 			expectErr: false,
 		},
 		{
 			name:              "Delete Operation",
-			expectedOperation: OperationTypeDeleted,
+			expectedOperation: OperationTypeDeleteResource,
+			expectedVersion:   defaultApiVersion,
 			expectedTxid:      "",
 			msg: &kafka.Message{
 				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeDeleted)},
+					{Key: "operation", Value: []byte(OperationTypeDeleteResource)},
+					{Key: "version", Value: []byte(defaultApiVersion)},
 				},
 			},
 			expectErr: false,
@@ -53,30 +60,62 @@ func TestParseHeaders(t *testing.T) {
 		{
 			name:              "Missing Operation Header",
 			expectedOperation: "",
+			expectedVersion:   defaultApiVersion,
 			expectedTxid:      "123456",
 			msg: &kafka.Message{
-				Headers: []kafka.Header{},
+				Headers: []kafka.Header{
+					{Key: "version", Value: []byte(defaultApiVersion)},
+				},
 			},
 			expectErr: true,
 		},
 		{
 			name:              "Missing Operation Value",
 			expectedOperation: "",
+			expectedVersion:   defaultApiVersion,
 			expectedTxid:      "123456",
 			msg: &kafka.Message{
 				Headers: []kafka.Header{
 					{Key: "operation", Value: []byte{}},
+					{Key: "version", Value: []byte(defaultApiVersion)},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name:              "Missing Version Header",
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   "",
+			expectedTxid:      "123456",
+			msg: &kafka.Message{
+				Headers: []kafka.Header{
+					{Key: "operation", Value: []byte(OperationTypeReportResource)},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name:              "Missing Version Value",
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   "",
+			expectedTxid:      "123456",
+			msg: &kafka.Message{
+				Headers: []kafka.Header{
+					{Key: "operation", Value: []byte(OperationTypeReportResource)},
+					{Key: "version", Value: []byte{}},
 				},
 			},
 			expectErr: true,
 		},
 		{
 			name:              "Extra Headers",
-			expectedOperation: OperationTypeCreated,
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   defaultApiVersion,
 			expectedTxid:      "123456",
 			msg: &kafka.Message{
 				Headers: []kafka.Header{
-					{Key: "operation", Value: []byte(OperationTypeCreated)},
+					{Key: "operation", Value: []byte(OperationTypeReportResource)},
+					{Key: "version", Value: []byte(defaultApiVersion)},
 					{Key: "unused-header", Value: []byte("unused-header-data")},
 				},
 			},
@@ -86,14 +125,15 @@ func TestParseHeaders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			parsedHeaders, err := ParseHeaders(test.msg, requiredHeaders)
+			parsedHeaders, err := ParseHeaders(test.msg)
 			if test.expectErr {
 				assert.NotNil(t, err)
-				assert.Nil(t, parsedHeaders)
+				assert.Empty(t, parsedHeaders.Operation)
+				assert.Empty(t, parsedHeaders.Version)
 			} else {
 				assert.Nil(t, err)
-				assert.Equal(t, parsedHeaders["operation"], test.expectedOperation)
-				assert.LessOrEqual(t, len(parsedHeaders), 2)
+				assert.Equal(t, parsedHeaders.Operation, test.expectedOperation)
+				assert.Equal(t, parsedHeaders.Version, test.expectedVersion)
 			}
 		})
 	}

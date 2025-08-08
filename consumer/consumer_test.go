@@ -27,6 +27,7 @@ const (
 	testDeleteMessage         = `{"schema":{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"resource_type"},{"type":"string","optional":true,"field":"resource_id"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"}],"optional":true,"name":"reporter"}],"optional":true,"name":"reference"}],"optional":true,"name":"payload"},"payload":{"reference":{"resource_type":"host","resource_id":"00000000-0000-0000-0000-000000000000","reporter":{"type":"hbi"}}}}`
 	testMigrationMessage      = `{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"id"},{"type":"string","optional":true,"field":"ansible_host"},{"type":"string","optional":true,"field":"insights_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"groups"}],"optional":true,"name":"payload"},"payload":{"id":"00000000-0000-0000-0000-000000000000","ansible_host":"my-ansible-host","insights_id":"00000000-0000-0000-0000-000000000000","subscription_manager_id":"00000000-0000-0000-0000-000000000000","satellite_id":"00000000-0000-0000-0000-000000000000","groups":"[{\"id\":\"00000000-0000-0000-0000-000000000000\"}]"}}`
 	testMigrationKey          = `{"payload":{"id":"00000000-0000-0000-0000-000000000000"}}`
+	defaultApiVersion         = "v1beta2"
 )
 
 type TestCase struct {
@@ -173,16 +174,19 @@ func TestInventoryConsumer_Retry(t *testing.T) {
 
 func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 	tests := []struct {
-		name              string
-		expectedOperation string
-		msg               *kafka.Message
-		clientEnabled     bool
-		setupMock         func(*mocks.MockClient)
-		expectError       bool
+		name                  string
+		expectedOperation     string
+		expectedVersion       string
+		msg                   *kafka.Message
+		clientEnabled         bool
+		setupMock             func(*mocks.MockClient)
+		expectError           bool
+		expectProcessingError bool
 	}{
 		{
 			name:              "Create Operation",
-			expectedOperation: OperationTypeCreated,
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMessageKey),
 				Value: []byte(testCreateOrUpdateMessage),
@@ -191,10 +195,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			setupMock: func(client *mocks.MockClient) {
 				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
+			expectError: false,
 		},
 		{
 			name:              "Update Operation",
-			expectedOperation: OperationTypeUpdated,
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMessageKey),
 				Value: []byte(testCreateOrUpdateMessage),
@@ -203,10 +209,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			setupMock: func(client *mocks.MockClient) {
 				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
+			expectError: false,
 		},
 		{
 			name:              "Delete Operation",
-			expectedOperation: OperationTypeDeleted,
+			expectedOperation: OperationTypeDeleteResource,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMessageKey),
 				Value: []byte(testDeleteMessage),
@@ -215,27 +223,33 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			setupMock: func(client *mocks.MockClient) {
 				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, nil)
 			},
+			expectError: false,
 		},
 		{
-			name:              "Fake Operation",
-			expectedOperation: "fake-operation",
-			msg:               &kafka.Message{},
-			clientEnabled:     true,
-			setupMock:         func(client *mocks.MockClient) {},
+			name:                  "Fake Operation",
+			expectedOperation:     "fake-operation",
+			msg:                   &kafka.Message{},
+			clientEnabled:         true,
+			setupMock:             func(client *mocks.MockClient) {},
+			expectError:           true,
+			expectProcessingError: false,
 		},
 		{
 			name:              "Created but inventory client disabled",
-			expectedOperation: OperationTypeCreated,
+			expectedOperation: OperationTypeReportResource,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMessageKey),
 				Value: []byte(testDeleteMessage),
 			},
 			clientEnabled: false,
 			setupMock:     func(client *mocks.MockClient) {},
+			expectError:   false,
 		},
 		{
 			name:              "Migration Operation - Create/Update Host",
 			expectedOperation: OperationTypeMigration,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMigrationKey),
 				Value: []byte(testMigrationMessage),
@@ -244,10 +258,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			setupMock: func(client *mocks.MockClient) {
 				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil)
 			},
+			expectError: false,
 		},
 		{
 			name:              "Migration Operation - Delete Host (tombstone)",
 			expectedOperation: OperationTypeMigration,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMigrationKey),
 				Value: []byte(""), // Empty value indicates tombstone/deletion
@@ -256,10 +272,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			setupMock: func(client *mocks.MockClient) {
 				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, nil)
 			},
+			expectError: false,
 		},
 		{
 			name:              "Migration Operation - Delete Host NotFound (should drop message)",
 			expectedOperation: OperationTypeMigration,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMigrationKey),
 				Value: []byte(""),
@@ -269,10 +287,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				// Return NotFound error on first attempt, which should cause message to be dropped
 				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, status.Error(codes.NotFound, "resource not found"))
 			},
+			expectError: false,
 		},
 		{
 			name:              "Migration Operation - Create/Update with Retry",
 			expectedOperation: OperationTypeMigration,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMigrationKey),
 				Value: []byte(testMigrationMessage),
@@ -283,10 +303,12 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, errors.New("temporary error")).Once()
 				client.On("CreateOrUpdateResource", mock.Anything).Return(&v1beta2.ReportResourceResponse{}, nil).Once()
 			},
+			expectError: false,
 		},
 		{
 			name:              "Migration Operation - Delete with Retry",
 			expectedOperation: OperationTypeMigration,
+			expectedVersion:   defaultApiVersion,
 			msg: &kafka.Message{
 				Key:   []byte(testMigrationKey),
 				Value: []byte(""),
@@ -297,6 +319,7 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, errors.New("temporary error")).Once()
 				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, nil).Once()
 			},
+			expectError: false,
 		},
 	}
 
@@ -317,15 +340,22 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 
 			headers := []kafka.Header{
 				{Key: "operation", Value: []byte(test.expectedOperation)},
+				{Key: "version", Value: []byte(defaultApiVersion)},
 			}
 			test.msg.Headers = headers
-			parsedHeaders, err := ParseHeaders(test.msg, requiredHeaders)
-			operation := parsedHeaders["operation"]
-			assert.Nil(t, err)
-			assert.Equal(t, parsedHeaders["operation"], test.expectedOperation)
-
-			err = tester.inv.ProcessMessage(operation, test.msg)
+			parsedHeaders, err := ParseHeaders(test.msg)
 			if test.expectError {
+				assert.NotNil(t, err)
+				assert.Empty(t, parsedHeaders.Operation)
+				assert.Empty(t, parsedHeaders.Version)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, parsedHeaders.Operation, test.expectedOperation)
+				assert.Equal(t, parsedHeaders.Version, test.expectedVersion)
+			}
+
+			err = tester.inv.ProcessMessage(parsedHeaders, test.msg)
+			if test.expectProcessingError {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)

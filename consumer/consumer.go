@@ -27,16 +27,17 @@ const (
 	// commitModulo is used to define the batch size of offsets based on the current offset being processed
 	commitModulo = 10
 
-	OperationTypeCreated   = "created"
-	OperationTypeUpdated   = "updated"
-	OperationTypeDeleted   = "deleted"
-	OperationTypeMigration = "migration"
+	OperationTypeReportResource = "ReportResource"
+	OperationTypeDeleteResource = "DeleteResource"
+	OperationTypeMigration      = "migration"
 )
 
 var (
-	requiredHeaders = []string{"operation"}
-	ErrClosed       = errors.New("consumer closed")
-	ErrMaxRetries   = errors.New("max retries reached")
+	requiredHeaders  = map[string]bool{"operation": true, "version": true}
+	validOperations  = map[string]bool{OperationTypeReportResource: true, OperationTypeDeleteResource: true, OperationTypeMigration: true}
+	validApiVersions = map[string]bool{"v1beta2": true}
+	ErrClosed        = errors.New("consumer closed")
+	ErrMaxRetries    = errors.New("max retries reached")
 )
 
 type Consumer interface {
@@ -129,6 +130,13 @@ type MessagePayload struct {
 	RequestPayload interface{}            `json:"payload"`
 }
 
+// EventHeaders stores the headers from an event message
+// It contains the API Operation type and API Version
+type EventHeaders struct {
+	Operation string `mapstructure:"operation"`
+	Version   string `mapstructure:"version"`
+}
+
 // Run starts the Consume loop with retry configurations and backoff
 func (i *InventoryConsumer) Run(options *Options, config CompletedConfig, client kessel.ClientProvider, logger *log.Helper) error {
 	retries := 0
@@ -187,16 +195,15 @@ func (i *InventoryConsumer) Consume() error {
 
 			switch e := event.(type) {
 			case *kafka.Message:
-				headers, err := ParseHeaders(e, requiredHeaders)
+				headers, err := ParseHeaders(e)
 				if err != nil {
 					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "ParseHeaders", fmt.Errorf("missing headers"))
 					i.Logger.Errorf("failed to parse message headers: %v", err)
 					run = false
 					continue
 				}
-				operation := headers["operation"]
 
-				err = i.ProcessMessage(operation, e)
+				err = i.ProcessMessage(headers, e)
 				if err != nil {
 					i.Logger.Errorf(
 						"error processing message: topic=%s partition=%d offset=%s",
@@ -215,7 +222,7 @@ func (i *InventoryConsumer) Consume() error {
 						continue
 					}
 				}
-				metricscollector.Incr(i.MetricsCollector.MsgsProcessed, operation, nil)
+				metricscollector.Incr(i.MetricsCollector.MsgsProcessed, headers.Operation, nil)
 				i.Logger.Infof("consumed event from topic %s, partition %d at offset %s",
 					*e.TopicPartition.Topic, e.TopicPartition.Partition, e.TopicPartition.Offset)
 				i.Logger.Debugf("consumed event data: key = %-10s value = %s", string(e.Key), string(e.Value))
@@ -253,11 +260,11 @@ func (i *InventoryConsumer) Consume() error {
 }
 
 // ProcessMessage processes an event message and replicates the change to Kessel Inventory
-func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message) error {
-	switch operation {
+func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Message) error {
+	switch headers.Operation {
 	// TODO: We need to support migrations for many resource types, this is a temporary solution to support host migrations
 	case OperationTypeMigration:
-		i.Logger.Infof("processing message: operation=%s", operation)
+		i.Logger.Infof("processing message: operation=%s", headers.Operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
 		if i.Client.IsEnabled() {
@@ -316,8 +323,8 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 		}
 		return nil
 
-	case OperationTypeCreated, OperationTypeUpdated:
-		i.Logger.Infof("processing message: operation=%s", operation)
+	case OperationTypeReportResource:
+		i.Logger.Infof("processing message: operation=%s", headers.Operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
 		var req v1beta2.ReportResourceRequest
@@ -341,8 +348,8 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 		}
 		return nil
 
-	case OperationTypeDeleted:
-		i.Logger.Infof("processing message: operation=%s", operation)
+	case OperationTypeDeleteResource:
+		i.Logger.Infof("processing message: operation=%s", headers.Operation)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
 		var req v1beta2.DeleteResourceRequest
@@ -369,7 +376,7 @@ func (i *InventoryConsumer) ProcessMessage(operation string, msg *kafka.Message)
 	default:
 		metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "unknown-operation-type", nil)
 		i.Logger.Errorf("unknown operation type, message cannot be processed and will be dropped: offset=%s operation=%s msg=%s",
-			msg.TopicPartition.Offset.String(), operation, msg.Value)
+			msg.TopicPartition.Offset.String(), headers.Operation, msg.Value)
 	}
 	return nil
 }

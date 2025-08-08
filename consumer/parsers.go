@@ -3,31 +3,48 @@ package consumer
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
-	"slices"
+
+	"errors"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/mitchellh/mapstructure"
 )
 
 // defines all required headers for message processing
 
-// ParseHeaders parses the header values in a kafka event and returns them as a map
+// ParseHeaders parses the header values in a kafka event and returns them as an EventHeaders object
 // It also verifies that all required headers are set
-func ParseHeaders(msg *kafka.Message, requiredHeaders []string) (map[string]string, error) {
-	headers := make(map[string]string)
+func ParseHeaders(msg *kafka.Message) (EventHeaders, error) {
+	var errs []error
+	var headers EventHeaders
+
+	mapHeaders := make(map[string]interface{})
 	for _, v := range msg.Headers {
 		// ignores any extra headers
-		if slices.Contains(requiredHeaders, v.Key) {
-			headers[v.Key] = string(v.Value)
+		if _, ok := requiredHeaders[v.Key]; ok {
+			mapHeaders[v.Key] = string(v.Value)
 		}
 	}
-
-	// ensures all required header keys are present after parsing, but only operation is required to have a value to process messages
-	headerKeys := slices.Sorted(maps.Keys(headers))
-	required := slices.Sorted(slices.Values(requiredHeaders))
-
-	if !slices.Equal(headerKeys, required) || headers["operation"] == "" {
-		return nil, fmt.Errorf("required headers are missing which would result in message processing failures: %+v", headers)
+	config := &mapstructure.DecoderConfig{
+		ErrorUnused: true,
+		Result:      &headers,
+	}
+	decoder, err := mapstructure.NewDecoder(config)
+	if err != nil {
+		return EventHeaders{}, fmt.Errorf("error creating decoder: %w", err)
+	}
+	if err := decoder.Decode(mapHeaders); err != nil {
+		return EventHeaders{}, fmt.Errorf("error decoding headers: %w", err)
+	}
+	// validate all header values are set and have valid values -- return all errors if multiple are found
+	if _, ok := validOperations[headers.Operation]; !ok {
+		errs = append(errs, fmt.Errorf("required header 'operation' is missing or invalid: operation='%s'", headers.Operation))
+	}
+	if _, ok := validApiVersions[headers.Version]; !ok {
+		errs = append(errs, fmt.Errorf("required header 'version' is missing or invalid: version='%s'", headers.Version))
+	}
+	if errs != nil {
+		return EventHeaders{}, errors.Join(errs...)
 	}
 	return headers, nil
 }
@@ -39,17 +56,17 @@ func ParseCreateOrUpdateMessage(msg []byte, output interface{}) error {
 	// msg value is expected to be a valid JSON body for the passed request type
 	err := json.Unmarshal(msg, &msgPayload)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling msgPayload: %v", err)
+		return fmt.Errorf("error unmarshaling msgPayload: %w", err)
 	}
 
 	payloadJson, err := json.Marshal(msgPayload.RequestPayload)
 	if err != nil {
-		return fmt.Errorf("error marshaling request payload: %v", err)
+		return fmt.Errorf("error marshaling request payload: %w", err)
 	}
 
 	err = json.Unmarshal(payloadJson, &output)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling request payload: %v", err)
+		return fmt.Errorf("error unmarshaling request payload: %w", err)
 	}
 	return nil
 }
@@ -61,17 +78,17 @@ func ParseDeleteMessage(msg []byte, output interface{}) error {
 	// msg value is expected to be a valid JSON body for a single relation
 	err := json.Unmarshal(msg, &msgPayload)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling msgPayload: %v", err)
+		return fmt.Errorf("error unmarshaling msgPayload: %w", err)
 	}
 
 	payloadJson, err := json.Marshal(msgPayload.RequestPayload)
 	if err != nil {
-		return fmt.Errorf("error marshaling tuple payload: %v", err)
+		return fmt.Errorf("error marshaling tuple payload: %w", err)
 	}
 
 	err = json.Unmarshal(payloadJson, &output)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling tuple payload: %v", err)
+		return fmt.Errorf("error unmarshaling tuple payload: %w", err)
 	}
 	return nil
 }
