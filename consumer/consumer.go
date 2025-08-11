@@ -27,12 +27,25 @@ const (
 	// commitModulo is used to define the batch size of offsets based on the current offset being processed
 	commitModulo = 10
 
+	/*
+		TODO: Discussion started with SDK development team to see about adding some custom types for API Operations.
+		This way we can reference those types instead of using strings long term. Since it would need to be coordinated
+		with multiple SDK's and fit in with the API generation that occurs upstream, punting on this kind of update
+		and leaving as strings for now.
+	*/
+
 	OperationTypeReportResource = "ReportResource"
 	OperationTypeDeleteResource = "DeleteResource"
 	OperationTypeMigration      = "migration"
 )
 
 var (
+
+	/*
+		TODO: Similar to API Operations, validOperations and validApiVersions should be abstracted outside of the consumer
+		in the SDK's or API itself. Then we could reference the specific operation types for our required headers, and
+		perform validation using those defined valid operations per API version
+	*/
 	requiredHeaders  = map[string]bool{"operation": true, "version": true}
 	validOperations  = map[string]bool{OperationTypeReportResource: true, OperationTypeDeleteResource: true, OperationTypeMigration: true}
 	validApiVersions = map[string]bool{"v1beta2": true}
@@ -264,7 +277,7 @@ func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Mess
 	switch headers.Operation {
 	// TODO: We need to support migrations for many resource types, this is a temporary solution to support host migrations
 	case OperationTypeMigration:
-		i.Logger.Infof("processing message: operation=%s", headers.Operation)
+		i.Logger.Infof("processing message: operation=%s, version=%s", headers.Operation, headers.Version)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
 		if i.Client.IsEnabled() {
@@ -324,7 +337,7 @@ func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Mess
 		return nil
 
 	case OperationTypeReportResource:
-		i.Logger.Infof("processing message: operation=%s", headers.Operation)
+		i.Logger.Infof("processing message: operation=%s, version=%s", headers.Operation, headers.Version)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
 		var req v1beta2.ReportResourceRequest
@@ -349,7 +362,7 @@ func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Mess
 		return nil
 
 	case OperationTypeDeleteResource:
-		i.Logger.Infof("processing message: operation=%s", headers.Operation)
+		i.Logger.Infof("processing message: operation=%s, version=%s", headers.Operation, headers.Version)
 		i.Logger.Debugf("processed message=%s", msg.Value)
 
 		var req v1beta2.DeleteResourceRequest
@@ -375,8 +388,8 @@ func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Mess
 
 	default:
 		metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "unknown-operation-type", nil)
-		i.Logger.Errorf("unknown operation type, message cannot be processed and will be dropped: offset=%s operation=%s msg=%s",
-			msg.TopicPartition.Offset.String(), headers.Operation, msg.Value)
+		i.Logger.Errorf("unknown operation type, message cannot be processed and will be dropped: offset=%s operation=%s version=%s msg=%s",
+			msg.TopicPartition.Offset.String(), headers.Operation, headers.Version, msg.Value)
 	}
 	return nil
 }
