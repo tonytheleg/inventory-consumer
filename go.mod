@@ -6,6 +6,7 @@ require (
 	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
 	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/go-kratos/kratos/v2 v2.8.4
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/project-kessel/inventory-api v0.0.0-20250725190058-5b12d8b2493a
 	github.com/project-kessel/kessel-sdk-go v0.0.0-20250724132447-5ed5147a4564
 	github.com/prometheus/client_golang v1.23.0
