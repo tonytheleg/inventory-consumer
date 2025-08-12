@@ -226,6 +226,21 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:              "Delete Operation - Resource Not Found (should drop message)",
+			expectedOperation: OperationTypeDeleteResource,
+			expectedVersion:   defaultApiVersion,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(testDeleteMessage),
+			},
+			clientEnabled: true,
+			setupMock: func(client *mocks.MockClient) {
+				// Return NotFound error on first attempt, which should cause message to be dropped
+				client.On("DeleteResource", mock.Anything).Return(&v1beta2.DeleteResourceResponse{}, status.Error(codes.NotFound, "resource not found"))
+			},
+			expectError: false,
+		},
+		{
 			name:                  "Fake Operation",
 			expectedOperation:     "fake-operation",
 			msg:                   &kafka.Message{},
