@@ -374,9 +374,19 @@ func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Mess
 		}
 
 		if i.Client.IsEnabled() {
+			// Error handler for "resource not found" errors
+			deleteErrorHandler := func(err error) bool {
+				if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "InventoryResourceNotFound", err)
+					i.Logger.Warnf("inventory resource not found, dropping message: %v", err)
+					return true // Short-circuit retry loop
+				}
+				return false // Continue with normal retry behavior
+			}
+
 			resp, err := i.Retry(func() (interface{}, error) {
 				return i.Client.DeleteResource(&req)
-			})
+			}, deleteErrorHandler)
 			if err != nil {
 				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
 				i.Logger.Errorf("failed to create resource: %v", err)
