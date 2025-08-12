@@ -46,11 +46,12 @@ var (
 		in the SDK's or API itself. Then we could reference the specific operation types for our required headers, and
 		perform validation using those defined valid operations per API version
 	*/
-	requiredHeaders  = map[string]bool{"operation": true, "version": true}
-	validOperations  = map[string]bool{OperationTypeReportResource: true, OperationTypeDeleteResource: true, OperationTypeMigration: true}
-	validApiVersions = map[string]bool{"v1beta2": true}
-	ErrClosed        = errors.New("consumer closed")
-	ErrMaxRetries    = errors.New("max retries reached")
+	requiredHeaders     = map[string]bool{"operation": true, "version": true}
+	validOperations     = map[string]bool{OperationTypeReportResource: true, OperationTypeDeleteResource: true, OperationTypeMigration: true}
+	validApiVersions    = map[string]bool{"v1beta2": true}
+	ErrClosed           = errors.New("consumer closed")
+	ErrMaxRetries       = errors.New("max retries reached")
+	ErrResourceNotFound = errors.New("resource not found")
 )
 
 type Consumer interface {
@@ -374,9 +375,19 @@ func (i *InventoryConsumer) ProcessMessage(headers EventHeaders, msg *kafka.Mess
 		}
 
 		if i.Client.IsEnabled() {
+			// Error handler for "resource not found" errors
+			deleteErrorHandler := func(err error) bool {
+				if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+					metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "InventoryResourceNotFound", err)
+					i.Logger.Warnf("inventory resource not found, dropping message: %v", err)
+					return true // Short-circuit retry loop
+				}
+				return false // Continue with normal retry behavior
+			}
+
 			resp, err := i.Retry(func() (interface{}, error) {
 				return i.Client.DeleteResource(&req)
-			})
+			}, deleteErrorHandler)
 			if err != nil {
 				metricscollector.Incr(i.MetricsCollector.MsgProcessFailures, "CreateResource", err)
 				i.Logger.Errorf("failed to create resource: %v", err)
