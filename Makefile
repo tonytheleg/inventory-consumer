@@ -64,12 +64,20 @@ inventory-consumer-down:
 
 .PHONY: setup-hbi-db
 setup-hbi-db:
-	PGPASSWORD=supersecurewow psql -h localhost -p 5432 -U postgres -d host-inventory -f development/configs/hbi-full-setup.sql
+	PGPASSWORD=supersecurewow psql -h localhost -p 5435 -U postgres -d host-inventory -f development/configs/hbi-full-setup.sql
+
+.PHONY: setup-connectors
+setup-connectors: setup-migration-connector setup-outbox-connector
 
 .PHONY: setup-migration-connector
 setup-migration-connector:
-	curl -d @development/configs/debezium-connector.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors
+	curl -d @development/configs/debezium-migration-connector.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors
 
-.PHONY: setup-migration-connector-no-snapshot
-setup-migration-connector-no-snapshot:
-	curl -d @development/configs/debezium-connector-no-snapshot.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors
+.PHONY: setup-outbox-connector
+setup-outbox-connector:
+	curl -d @development/configs/debezium-outbox-connector.json -H 'Content-Type: application/json' -X POST http://localhost:8084/connectors
+
+.PHONY: check-connector-status
+check-connector-status:
+	curl localhost:8084/connectors/hbi-outbox-connector/status | jq -r
+	curl localhost:8084/connectors/hbi-migration-connector/status | jq -r

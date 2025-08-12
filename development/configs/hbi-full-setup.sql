@@ -1285,6 +1285,14 @@ ALTER PUBLICATION hbi_hosts_pub_v1_0_1 ADD TABLE ONLY hbi.hosts (id, account, di
 
 CREATE TABLE hbi.signal (id VARCHAR(255) PRIMARY KEY, type VARCHAR(255) NOT NULL, data VARCHAR(255) NULL);
 
+CREATE TABLE IF NOT EXISTS hbi.outbox (
+    id uuid NOT NULL,
+    aggregatetype character varying(255) NOT NULL,
+    aggregateid character varying(255) NOT NULL,
+    operation character varying(255) NOT NULL,
+    version character varying(255) NOT NULL,
+    payload jsonb
+  );
 --
 -- PostgreSQL database dump complete
 --

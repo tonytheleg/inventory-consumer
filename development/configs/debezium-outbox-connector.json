@@ -1,0 +1,22 @@
+{
+  "name": "hbi-outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "slot.name": "debezium_outbox",
+    "snapshot.mode": "no_data",
+    "database.server.name": "host-inventory-db",
+    "database.dbname": "host-inventory",
+    "database.hostname": "hbidatabase",
+    "database.port": "5435",
+    "database.user": "postgres",
+    "database.password": "supersecurewow",
+    "topic.prefix": "host-inventory",
+    "table.include.list": "hbi.outbox",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.fields.additional.placement": "operation:header,version:header",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "plugin.name": "pgoutput"
+  }
+}

@@ -29,18 +29,18 @@ services:
 
   hbidatabase:
     image: "postgres"
-    command: ["docker-entrypoint.sh", "-p", "5432", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    command: ["docker-entrypoint.sh", "-p", "5435", "-c", "config_file=/etc/postgresql/postgresql.conf"]
     hostname: hbidatabase
     expose:
-      - "5432"
+      - "5435"
     ports:
-      - "5432:5432"
+      - "5435:5435"
     volumes:
       - ./configs/postgresql.conf:/etc/postgresql/postgresql.conf:ro,z
     environment:
       - "POSTGRES_PASSWORD=supersecurewow"
       - "POSTGRES_DB=host-inventory"
-      - "PGPORT=5432"
+      - "PGPORT=5435"
     networks:
       - kessel
 

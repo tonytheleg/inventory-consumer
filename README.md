@@ -37,14 +37,20 @@ make build
 podman run --network kessel -d quay.io/YOUR-IMAGE-HERE:TAG start --consumer.bootstrap-servers kafka:9093
 ```
 
-#### Using Podman Compose
+#### Using Podman Compose (Recommended)
 
->!NOTE
+>[!NOTE]
 >The podman compose setup is meant to replicate an ephemeral-like environment locally and requires Inventory API and Relations API to be running by default. You will need both repos cloned down in order to set everything up.
 
-In the root of your cloned Inventory API repo: `make inventory-up-relations-ready`
+1. In the root of your cloned Inventory API repo: `make inventory-up-relations-ready`
 
-In the root of your cloned Relations API reo: `make relations-api-up`
+2. In the root of your cloned Relations API reo:
+    * Pull down an official schema that will support the consumer:
+
+    ```shell
+    curl -o deploy/schema.zed https://raw.githubusercontent.com/RedHatInsights/rbac-config/refs/heads/master/configs/stage/schemas/schema.zed
+    ```
+    * Start Relations API: `make relations-api-up`
 
 Then:
 
@@ -54,28 +60,33 @@ Then:
 make inventory-consumer-up
 ```
 
+This will allow you to test Kessel Inventory Consumer by producing messages to any created topics that the consumer is configured to monitor (see [config file](./development/configs/full-setup.yaml)).
+
+See the [Development Docs](./development/docs) for info on specific service provider testing use cases.
+
 #### Using Ephemeral
 
 ```shell
 # Deploy Kessel Services (this will also deploy relations and inventory api)
 bonfire deploy kessel -C kessel-inventory-consumer
+```
 
-# Once its all running, update the spicedb schema for one that supports HBI
-oc apply -f https://gist.githubusercontent.com/akoserwal/a061a2959862caa653aa8c8836db874b/raw/7cd73fd045ed8f30c850349bb7ff3264b2d35c8e/spicedb-schema-configmap.yaml
+#### Testing in Ephemeral
 
-# Kick the relations pod to load the new schema
-oc delete pod -l app=kessel-relations
+>[!NOTE]
+>Since the Kessel Inventory Consumer is only used for HBI currently, for any testing, its recommended to use the process in the insights-deployer-script for standing everything up and testing. Any below testing is just basic validation of the service working and is not indicative of a final setup. See the [HBI Migration Runbook](https://github.com/project-kessel/insights-service-deployer/blob/main/docs/hbi-migration-runbook.md) for more details
 
-# To test in Ephemeral you need to produce a message to the topic for the consumer to create the resource
-# You can test with my personal kcat image
+To perform a basic test in Ephemeral you need to produce a message to the topic for the consumer to create the resource
+
+```shell
 BOOTSTRAP_SERVERS=$(oc get secret kessel-inventory -o json | jq -r '.data."cdappconfig.json"' | base64 -d | jq -r '.kafka.brokers[] | "\(.hostname):\(.port)"')
 oc run kcat --rm -i --tty --image quay.io/anatale/kcat:fedora --env BOOTSTRAP_SERVERS="$BOOTSTRAP_SERVERS" -- bash
 
-# Create an HBI Host
-echo '{"schema":{"type":"string","optional":false},"payload":"dd1b73b9-3e33-4264-968c-e3ce55b9afec"}|{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"},{"type":"string","optional":true,"field":"reporter_type"},{"type":"string","optional":true,"field":"reporter_instance_id"},{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"local_resource_id"},{"type":"string","optional":true,"field":"api_href"},{"type":"string","optional":true,"field":"console_href"},{"type":"string","optional":true,"field":"reporter_version"}],"optional":true,"name":"metadata"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"workspace_id"}],"optional":true,"name":"common"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"insights_inventory_id"},{"type":"string","optional":true,"field":"ansible_host"}],"optional":true,"name":"reporter"}],"optional":true,"name":"representations"}],"optional":true,"name":"payload"},"payload":{"type":"host","reporter_type":"hbi","reporter_instance_id":"3088be62-1c60-4884-b133-9200542d0b3f","representations":{"metadata":{"local_resource_id":"dd1b73b9-3e33-4264-968c-e3ce55b9afec","api_href":"https://apiHref.com/","console_href":"https://www.console.com/","reporter_version":"2.7.16"},"common":{"workspace_id":"a64d17d0-aec3-410a-acd0-e0b85b22c076"},"reporter":{"satellite_id":"2c4196f1-0371-4f4c-8913-e113cfaa6e67","subscription_manager_id":"af94f92b-0b65-4cac-b449-6b77e665a08f","insights_inventory_id":"05707922-7b0a-4fe6-982d-6adbc7695b8f","ansible_host":"host-1"}}}}' | kcat -P -b $BOOTSTRAP_SERVERS -H "operation=created" -t hbi.replication.events -K "|"
+# Create an HBI Host using Outbox
+echo '{"schema":{"type":"string","optional":false},"payload":"dd1b73b9-3e33-4264-968c-e3ce55b9afec"}|{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"},{"type":"string","optional":true,"field":"reporter_type"},{"type":"string","optional":true,"field":"reporter_instance_id"},{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"local_resource_id"},{"type":"string","optional":true,"field":"api_href"},{"type":"string","optional":true,"field":"console_href"},{"type":"string","optional":true,"field":"reporter_version"}],"optional":true,"name":"metadata"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"workspace_id"}],"optional":true,"name":"common"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"insights_inventory_id"},{"type":"string","optional":true,"field":"ansible_host"}],"optional":true,"name":"reporter"}],"optional":true,"name":"representations"}],"optional":true,"name":"payload"},"payload":{"type":"host","reporter_type":"hbi","reporter_instance_id":"3088be62-1c60-4884-b133-9200542d0b3f","representations":{"metadata":{"local_resource_id":"dd1b73b9-3e33-4264-968c-e3ce55b9afec","api_href":"https://apiHref.com/","console_href":"https://www.console.com/","reporter_version":"2.7.16"},"common":{"workspace_id":"a64d17d0-aec3-410a-acd0-e0b85b22c076"},"reporter":{"satellite_id":"2c4196f1-0371-4f4c-8913-e113cfaa6e67","subscription_manager_id":"af94f92b-0b65-4cac-b449-6b77e665a08f","insights_inventory_id":"05707922-7b0a-4fe6-982d-6adbc7695b8f","ansible_host":"host-1"}}}}' | kcat -P -b $BOOTSTRAP_SERVERS -H "operation=ReportResource" -H "version=v1beta2" -t outbox.event.hbi.hosts -K "|"
 
-# Delete the same HBI Host
-echo '{"schema":{"type":"string","optional":false},"payload":"dd1b73b9-3e33-4264-968c-e3ce55b9afec"}|{"schema":{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"resource_type"},{"type":"string","optional":true,"field":"resource_id"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"}],"optional":true,"name":"reporter"}],"optional":true,"name":"reference"}],"optional":true,"name":"payload"},"payload":{"reference":{"resource_type":"host","resource_id":"dd1b73b9-3e33-4264-968c-e3ce55b9afec","reporter":{"type":"hbi"}}}}' | kcat -P -b $BOOTSTRAP_SERVERS -H "operation=deleted" -t hbi.replication.events -K "|"
+# Delete the same HBI Host using Outbox
+echo '{"schema":{"type":"string","optional":false},"payload":"dd1b73b9-3e33-4264-968c-e3ce55b9afec"}|{"schema":{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"resource_type"},{"type":"string","optional":true,"field":"resource_id"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"}],"optional":true,"name":"reporter"}],"optional":true,"name":"reference"}],"optional":true,"name":"payload"},"payload":{"reference":{"resource_type":"host","resource_id":"dd1b73b9-3e33-4264-968c-e3ce55b9afec","reporter":{"type":"hbi"}}}}' | kcat -P -b $BOOTSTRAP_SERVERS -H "operation=DeleteResource" -H "version=v1beta2" -t outbox.event.hbi.hosts -K "|"
 ```
 
 ### Monitoring
