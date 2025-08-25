@@ -9,10 +9,9 @@ objects:
       name: kessel-inventory-consumer
     spec:
       envName: ${ENV_NAME}
-      # uncomment once topics have been created
-      # kafkaTopics:
-      # - topicName: outbox.event.hbi.hosts
-      # - topicName: host-inventory.hbi.hosts
+      kafkaTopics:
+      - topicName: outbox.event.hbi.hosts
+      - topicName: host-inventory.hbi.hosts
       optionalDependencies:
         - kessel-inventory
         - kessel-relations
