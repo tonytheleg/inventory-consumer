@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/authzed/grpcutil v0.0.0-20250221190651-1985b19b35b8
-	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
+	github.com/confluentinc/confluent-kafka-go/v2 v2.11.1
 	github.com/go-kratos/kratos/v2 v2.8.4
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/project-kessel/inventory-api v0.0.0-20250725190058-5b12d8b2493a
