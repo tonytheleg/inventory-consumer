@@ -33,19 +33,16 @@ development/               Local Podman Compose setup and configs
 
 ### To Build Container Image:
 
-_Linux/Windows_
-```shell
-export IMAGE=your-quay-repo
-make docker-build-push
-```
+Log in to the required registries, then run the `docker-build-push` target with your image destination. The base image is pulled from `registry.access.redhat.com` during the build, so both logins are required.
 
-_MacOS_
+    podman login quay.io                     # or: docker login quay.io
+    podman login registry.access.redhat.com  # or: docker login registry.access.redhat.com
 
-```shell
-export QUAY_REPO_INVENTORY=your-quay-repo # required
-podman login quay.io # required, this target assumes you are already logged in
-make build-push-minimal
-```
+    make docker-build-push IMAGE=quay.io/your-org/inventory-consumer
+
+If the build fails with an authentication error mentioning `registry.access.redhat.com`, ensure you are logged in using your Red Hat Customer Portal credentials. See the [Red Hat Registry Authentication guide](https://access.redhat.com/RegistryAuthentication) for details.
+
+`podman` is used automatically if available, otherwise `docker` is used. Override with `DOCKER=docker make docker-build-push IMAGE=quay.io/your-org/inventory-consumer`.
 
 ### To Run:
 

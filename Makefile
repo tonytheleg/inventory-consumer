@@ -7,12 +7,12 @@ GOBIN?=$(shell go env GOBIN)
 GOENV=GOOS=${GOOS} GOARCH=${GOARCH}
 GOBUILDFLAGS=-gcflags="all=-trimpath=${GOPATH}" -asmflags="all=-trimpath=${GOPATH}"
 
-IMAGE ?="quay.io/cloudservices/kessel-inventory"
-IMAGE_TAG=$(git rev-parse --short=7 HEAD)
-GIT_COMMIT=$(git rev-parse --short HEAD)
+IMAGE_TAG := $(shell git rev-parse --short=7 HEAD)
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+PLATFORM_FLAGS := $(shell if [ "$$(uname -s)" = "Darwin" ]; then echo "--platform linux/amd64 --build-arg TARGETARCH=amd64"; fi)
 
 ifeq ($(DOCKER),)
-DOCKER:=$(shell command -v podman || command -v docker)
+DOCKER := $(shell command -v podman || command -v docker)
 endif
 
 ifeq ($(VERSION),)
@@ -43,11 +43,19 @@ lint-fix:
 
 .PHONY: docker-build-push
 docker-build-push:
-	./build_deploy.sh
-
-.PHONY: build-push-minimal
-build-push-minimal:
-	./build_push_minimal.sh
+	@[ -n "$(DOCKER)" ] || { echo "Error: neither podman nor docker found. Please install one to continue."; exit 1; }
+	@if [ -z "$(IMAGE)" ]; then \
+		echo "IMAGE is required. Example: make docker-build-push IMAGE=quay.io/youruser/inventory-consumer"; \
+		exit 1; \
+	fi
+	@printf '%s\n' "$(IMAGE)" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9._/:@-]*$$' || { echo "IMAGE contains invalid characters. Use format: quay.io/your-org/image-name"; exit 1; }
+	"$(DOCKER)" build $(PLATFORM_FLAGS) --build-arg GIT_COMMIT="$(GIT_COMMIT)" -t "$(IMAGE):$(IMAGE_TAG)" -f ./Dockerfile . || \
+		(echo "Build failed. If due to authentication, check your registry credentials and try again." && exit 1)
+	"$(DOCKER)" push "$(IMAGE):$(IMAGE_TAG)" || \
+		(echo "Push failed. If due to authentication, run: $(DOCKER) login quay.io" && exit 1)
+	"$(DOCKER)" tag "$(IMAGE):$(IMAGE_TAG)" "$(IMAGE):latest"
+	"$(DOCKER)" push "$(IMAGE):latest" || \
+		(echo "Push failed. If due to authentication, run: $(DOCKER) login quay.io" && exit 1)
 
 .PHONY: inventory-consumer-up
 inventory-consumer-up:
