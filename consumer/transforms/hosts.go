@@ -17,6 +17,11 @@ func TransformHostToReportResourceRequest(msg []byte) (*v1beta2.ReportResourceRe
 		return nil, fmt.Errorf("error unmarshaling Debezium message: %v", err)
 	}
 
+	// Validate Groups is non-empty before accessing elements
+	if len(hostMsg.Payload.Groups) == 0 {
+		return nil, fmt.Errorf("malformed migration message: host has no groups (host_id=%s)", hostMsg.Payload.ID)
+	}
+
 	// Create a simplified structure that matches the expected format
 	// First convert to the intermediate JSON structure
 	intermediatePayload := map[string]interface{}{

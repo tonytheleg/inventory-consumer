@@ -40,7 +40,7 @@ const (
 	errUnmarshalingKey      = "error unmarshaling message key for tombstone"
 	errNoKeyForTombstone    = "tombstone message has no key to extract resource ID"
 	errNoResourceID         = "cannot extract resource ID from tombstone message key"
-	errIndexOutOfRange      = "runtime error: index out of range"
+	errNoGroups             = "malformed migration message: host has no groups"
 
 	// Test messages
 	testHostMessageValid = `{
@@ -203,16 +203,16 @@ func TestTransformHostToReportResourceRequest(t *testing.T) {
 			errorContains: errUnmarshalingDebezium,
 		},
 		{
-			name:          "empty payload transforms but may have issues",
+			name:          "empty payload returns error for missing groups",
 			message:       []byte(testHostMessageEmptyPayload),
 			expectError:   true,
-			errorContains: errIndexOutOfRange,
+			errorContains: errNoGroups,
 		},
 		{
-			name:          "no groups causes panic",
+			name:          "no groups returns error instead of panic",
 			message:       []byte(testHostMessageNoGroups),
 			expectError:   true,
-			errorContains: errIndexOutOfRange,
+			errorContains: errNoGroups,
 		},
 		{
 			name:          "nil message returns error",
@@ -230,25 +230,13 @@ func TestTransformHostToReportResourceRequest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			// Use defer to catch panics for tests that expect them
-			if test.errorContains == errIndexOutOfRange {
-				defer func() {
-					if r := recover(); r != nil {
-						// Expected panic
-						assert.Contains(t, r.(error).Error(), test.errorContains)
-					} else {
-						t.Errorf("expected panic but none occurred")
-					}
-				}()
-			}
-
 			req, err := TransformHostToReportResourceRequest(test.message)
 
-			if test.expectError && test.errorContains != errIndexOutOfRange {
+			if test.expectError {
 				assert.NotNil(t, err)
 				assert.Contains(t, err.Error(), test.errorContains)
 				assert.Nil(t, req)
-			} else if !test.expectError {
+			} else {
 				assert.Nil(t, err)
 				assert.NotNil(t, req)
 				if test.validate != nil {

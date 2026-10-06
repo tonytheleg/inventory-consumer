@@ -28,6 +28,7 @@ const (
 	testDeleteMessage            = `{"schema":{"type":"struct","fields":[{"type":"struct","fields":[{"type":"string","optional":true,"field":"resource_type"},{"type":"string","optional":true,"field":"resource_id"},{"type":"struct","fields":[{"type":"string","optional":true,"field":"type"}],"optional":true,"name":"reporter"}],"optional":true,"name":"reference"}],"optional":true,"name":"payload"},"payload":{"reference":{"resource_type":"host","resource_id":"00000000-0000-0000-0000-000000000000","reporter":{"type":"hbi"}}}}`
 	testMigrationMessage         = `{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"id"},{"type":"string","optional":true,"field":"ansible_host"},{"type":"string","optional":true,"field":"insights_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"groups"}],"optional":true,"name":"payload"},"payload":{"id":"00000000-0000-0000-0000-000000000000","ansible_host":"my-ansible-host","insights_id":"00000000-0000-0000-0000-000000000000","subscription_manager_id":"00000000-0000-0000-0000-000000000000","satellite_id":"00000000-0000-0000-0000-000000000000","groups":"[{\"id\":\"00000000-0000-0000-0000-000000000000\"}]"}}`
 	testMigrationKey             = `{"payload":{"id":"00000000-0000-0000-0000-000000000000"}}`
+	testMigrationMessageNoGroups = `{"schema":{"type":"struct","fields":[{"type":"string","optional":true,"field":"id"},{"type":"string","optional":true,"field":"ansible_host"},{"type":"string","optional":true,"field":"insights_id"},{"type":"string","optional":true,"field":"subscription_manager_id"},{"type":"string","optional":true,"field":"satellite_id"},{"type":"string","optional":true,"field":"groups"}],"optional":true,"name":"payload"},"payload":{"id":"00000000-0000-0000-0000-000000000000","ansible_host":"my-ansible-host","insights_id":"00000000-0000-0000-0000-000000000000","subscription_manager_id":"00000000-0000-0000-0000-000000000000","satellite_id":"00000000-0000-0000-0000-000000000000","groups":"[]"}}`
 	defaultApiVersion            = "v1beta2"
 )
 
@@ -461,6 +462,21 @@ func TestInventoryConsumer_ProcessMessage(t *testing.T) {
 			},
 			expectError: false,
 		},
+		{
+			name:              "Migration Operation - Malformed message with empty groups is skipped",
+			expectedOperation: OperationTypeMigration,
+			expectedVersion:   defaultApiVersion,
+			msg: &kafka.Message{
+				Key:   []byte(testMigrationKey),
+				Value: []byte(testMigrationMessageNoGroups),
+				TopicPartition: kafka.TopicPartition{
+					Topic: ToPointer("test-topic"),
+				},
+			},
+			clientEnabled: true,
+			setupMock:     func(client *mocks.MockClient) {},
+			expectError:   false,
+		},
 	}
 
 	for _, test := range tests {
@@ -887,6 +903,72 @@ func TestInventoryConsumer_Shutdown(t *testing.T) {
 			}
 
 			mockConsumer.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSafeProcessMessage(t *testing.T) {
+	topic := "test-topic"
+
+	tests := []struct {
+		name        string
+		operation   string
+		value       []byte
+		expectError bool
+	}{
+		{
+			name:        "recovered panic returns non-nil error",
+			operation:   OperationTypeMigration,
+			value:       nil, // nil Value triggers panic in transforms
+			expectError: true,
+		},
+		{
+			name:        "normal error propagates",
+			operation:   OperationTypeReportResource,
+			value:       []byte(`invalid json`),
+			expectError: true,
+		},
+		{
+			name:        "malformed migration message is skipped",
+			operation:   OperationTypeMigration,
+			value:       []byte(testMigrationMessageNoGroups),
+			expectError: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tester := &TestCase{name: test.name}
+			errs := tester.TestSetup()
+			assert.Empty(t, errs)
+
+			mockClient := &mocks.MockClient{}
+			mockClient.On("IsEnabled").Return(true).Maybe()
+			tester.inv.Client = mockClient
+
+			msg := &kafka.Message{
+				TopicPartition: kafka.TopicPartition{
+					Topic:     &topic,
+					Partition: 0,
+					Offset:    kafka.Offset(42),
+				},
+				Value: test.value,
+				Key:   []byte(testMigrationKey),
+			}
+
+			headers := EventHeaders{
+				Operation: test.operation,
+				Version:   defaultApiVersion,
+			}
+
+			err := tester.inv.safeProcessMessage(headers, msg)
+			if test.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			mockClient.AssertExpectations(t)
 		})
 	}
 }

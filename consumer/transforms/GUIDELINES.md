@@ -52,7 +52,7 @@ Transforms are the extension point for onboarding new CDC source systems that do
 
 - Use pointer types (`*string`) in domain structs for CDC columns that can be database NULL. JSON `null` deserializes to a nil pointer and flows through to `structpb.Struct` as a null value -- do not convert nil pointers to empty strings.
 - The `groups` field uses the custom `GroupSlice` type because Debezium may emit it as either a JSON array or a stringified JSON array. Any similar polymorphic field in a new provider must use a custom type with `UnmarshalJSON`.
-- **Collection access**: The current host transform (e.g., `hosts.go`) accesses collection elements like `Groups[0]` without validating length, which causes panics when the collection is empty. Future transform implementations should validate collection length before accessing elements and return an error, rather than relying on panic recovery.
+- **Collection access**: All transform implementations must validate collection length before accessing elements and return an error for empty/nil collections, rather than relying on panic recovery. The consumer's `safeProcessMessage` wrapper recovers unexpected panics and returns a non-nil error (triggering the consumer's retry path), but transforms should handle known cases explicitly with descriptive errors returned from `ProcessMessage`.
 
 ## Constants Conventions
 
@@ -86,7 +86,7 @@ New providers consuming raw CDC will use the `migration` path (or a new operatio
 2. Message with null optional fields -- verify nil pointer fields propagate as null in the `structpb.Struct` maps (use `.AsMap()` and `assert.Nil`).
 3. Message with multiple items in a collection field -- verify the correct element is selected.
 4. Invalid JSON input -- verify error contains the unmarshal error prefix.
-5. Empty/missing required collections -- the current host transform panics on empty `Groups` (index-out-of-range); tests must use `defer/recover` to assert the panic. New transforms should return a descriptive error instead of panicking.
+5. Empty/missing required collections -- transforms must return a descriptive error for empty/nil collections. Tests assert the error message directly (no `defer/recover` needed).
 6. Nil and empty byte slice inputs -- verify error returns.
 
 ### Required Test Cases for DeleteResourceRequest Transforms
