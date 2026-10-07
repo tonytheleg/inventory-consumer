@@ -142,7 +142,7 @@ This is the most common extension task. The full procedure is in [consumer/trans
 4. Add the operation constant and `ProcessMessage` case in `consumer/consumer.go`
 5. Add to `validOperations` map in `consumer/consumer.go`
 
-## Naming Conventions
+## Naming Conventions and Guidelines
 
 - **Go packages**: lowercase, single-word where possible
 - **CLI flags**: dot-separated hierarchy with kebab-case segments (e.g., `consumer.auth.sasl-mechanism`)
@@ -150,6 +150,7 @@ This is the most common extension task. The full procedure is in [consumer/trans
 - **Metric names**: `consumer_stats_` prefix for Kafka stats, `consumer_` prefix for app-level counters, snake_case after prefix
 - **Constants**: provider-specific constants follow `<Provider>ResourceType`, `<Provider>ReporterType` naming in `consumer/types/`
 - **Operation types**: string constants in `consumer.go` (e.g., `OperationTypeReportResource`)
+- **Go documentation comments**: Add Go doc comments to all newly added exported types and functions. Add comments to non-exported functions when their logic is not obvious. When unsure whether a comment is needed or how it should be written, follow the [Go doc comments guide](https://go.dev/doc/comment).
 
 ## Logging
 
