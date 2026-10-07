@@ -49,7 +49,7 @@ docker-build-push:
 		exit 1; \
 	fi
 	@printf '%s\n' "$(IMAGE)" | grep -qE '^[a-zA-Z0-9][a-zA-Z0-9._/:@-]*$$' || { echo "IMAGE contains invalid characters. Use format: quay.io/your-org/image-name"; exit 1; }
-	"$(DOCKER)" build $(PLATFORM_FLAGS) --build-arg GIT_COMMIT="$(GIT_COMMIT)" -t "$(IMAGE):$(IMAGE_TAG)" -f ./Dockerfile . || \
+	"$(DOCKER)" build --pull $(PLATFORM_FLAGS) --build-arg GIT_COMMIT="$(GIT_COMMIT)" -t "$(IMAGE):$(IMAGE_TAG)" -f ./Dockerfile . || \
 		(echo "Build failed. If due to authentication, check your registry credentials and try again." && exit 1)
 	"$(DOCKER)" push "$(IMAGE):$(IMAGE_TAG)" || \
 		(echo "Push failed. If due to authentication, run: $(DOCKER) login quay.io" && exit 1)
